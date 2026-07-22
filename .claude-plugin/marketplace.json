@@ -1,0 +1,16 @@
+{
+  "name": "fba-ai",
+  "owner": {
+    "name": "FBA AI",
+    "email": "support@example.com"
+  },
+  "description": "Private marketplace — the FBA operator's Amazon FBA daily pipeline + lifecycle automation, packaged for coaching users.",
+  "plugins": [
+    {
+      "name": "fba-ai",
+      "source": "./",
+      "description": "Two live Amazon FBA dashboards — a unit-by-unit lifecycle board and a buy-to-bank cash-flow cycle — that a setup wizard wires to your own Amazon SP-API + Google Sheets.",
+      "displayName": "FBA AI"
+    }
+  ]
+}

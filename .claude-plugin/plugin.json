@@ -1,0 +1,18 @@
+{
+  "name": "fba-ai",
+  "version": "0.5.3",
+  "description": "Two live Amazon FBA dashboards — a unit-by-unit lifecycle board and a buy-to-bank cash-flow cycle — that a setup wizard wires to your own Amazon SP-API + Google Sheets.",
+  "author": {
+    "name": "FBA AI",
+    "email": "support@example.com"
+  },
+  "keywords": [
+    "fba",
+    "amazon",
+    "sellerboard",
+    "cogs",
+    "prep-center",
+    "personal"
+  ],
+  "displayName": "FBA AI"
+}

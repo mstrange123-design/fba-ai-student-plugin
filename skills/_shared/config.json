@@ -1,0 +1,50 @@
+{
+  "$schema_version": "1.0.0",
+  "$updated": "USER TEMPLATE — run the setup-wizard to fill your own values",
+  "$description": "Shared configuration this kit's skills read at runtime. Edit here, not inline in scripts.",
+  "business": {
+    "entity": "Your Business LLC",
+    "owner_name": "Your Name",
+    "owner_email": "you@example.com"
+  },
+  "adapters": {
+    "$note": "3 yes/no switches the setup wizard sets from plain questions (see references/adapters.md). In this kit they control ONLY what your two live tiles display — 'yes' shows the fuller journey/label, 'no' shows a clean honest version. Nothing breaks either way. Automating your prep center or SellerBoard is a later lesson, not this kit.",
+    "prep_center": {
+      "provider": "manual",
+      "values": ["yes", "manual"]
+    },
+    "cogs_tool": {
+      "provider": "none",
+      "values": ["yes", "none"]
+    },
+    "finance": {
+      "provider": "manual",
+      "values": ["monarch", "manual"]
+    }
+  },
+  "ops_sheet": {
+    "sheet_id": "YOUR_FBA_OPS_SHEET_ID",
+    "tabs": {
+      "pipeline_runs": { "gid_name": "Pipeline Runs", "gid_numeric": "" },
+      "action_items": { "gid_name": "Action Items", "gid_numeric": "" },
+      "bought": { "gid_name": "Bought", "gid_numeric": "" }
+    }
+  },
+  "live_artifact_feeds": {
+    "$note": "Your two live tiles each read a small JSON feed from your own Drive. scripts/create_feed_files.py creates both files and fills the ids below during setup (Step 7b) — nothing to edit here by hand.",
+    "feeds": {
+      "lifecycle-stages": {
+        "drive_file_id": "YOUR_LIFECYCLE_STAGES_DRIVE_FILE_ID",
+        "drive_feed_name": "lifecycle-feed.json"
+      },
+      "fba-cash-flow-equilibrium": {
+        "drive_file_id": "YOUR_FBA_CASH_FLOW_EQUILIBRIUM_DRIVE_FILE_ID",
+        "drive_feed_name": "cash-flow-feed.json"
+      }
+    }
+  },
+  "cogs": {
+    "$note": "pre_bought_asins = ASINs that already carry cost history in SellerBoard from before you started using this kit. Leave empty if you have none.",
+    "pre_bought_asins": []
+  }
+}

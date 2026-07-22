@@ -1,0 +1,665 @@
+<!DOCTYPE html><script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Lifecycle Stages — Item Journey",
+  "schemaVersion": 1,
+  "description": "Where every unit sits in its buy→bank journey: a live True Current Pipeline ($ at cost) plus the historical stage funnel from the Item Journey sheet. Reads a live Drive feed.",
+  "mcpTools": ["{{DRIVE_READ_TOOL}}"],
+  "mcpServerNames": ["Google Drive"]
+}
+</script>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lifecycle Stages — Item Journey</title>
+<style>
+:root { color-scheme: light }
+* { box-sizing: border-box }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 16px; background: #f9fafb; color: #1f2937 }
+h1 { font-size: 18px; margin: 0 0 4px 0; }
+.sub { color: #6b7280; font-size: 12px; margin-bottom: 16px }
+.section-h { font-size: 13px; font-weight: 600; color: #374151; margin: 20px 0 8px 0; text-transform: uppercase; letter-spacing: 0.04em }
+.section-h .hint { font-size: 11px; color: #9ca3af; font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 8px }
+
+.funnel-scroll { overflow-x: auto; margin-bottom: 8px; padding-bottom: 4px }
+.funnel { display: flex; gap: 4px; align-items: stretch; min-width: 980px }
+.stage { flex: 1; min-width: 105px; padding: 10px 8px; background: white; border-radius: 6px; border-left: 4px solid; position: relative; overflow: visible }
+.stage .lbl { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600 }
+.stage .val { font-size: 22px; font-weight: 700; margin: 4px 0 2px 0 }
+.stage .pct { font-size: 11px; color: #9ca3af }
+.stage .stuck { font-size: 10px; color: #dc2626; font-weight: 600; margin-top: 4px }
+.stage .stuck.zero { color: #9ca3af; font-weight: 400 }
+
+.bar-scroll { overflow-x: auto; margin: 8px 0 16px 0 }
+.bar { display: flex; gap: 2px; height: 28px; border-radius: 4px; overflow: hidden; background: #e5e7eb; min-width: 980px }
+.bar-seg { color: white; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden; white-space: nowrap }
+
+/* TIME WINDOW toggle (additive 2026-07-11) — hidden unless the feed ships a valid windows block */
+.window-toggle { display: none; gap: 6px; align-items: center; flex-wrap: wrap; margin: 0 0 6px 0 }
+.window-toggle.show { display: flex }
+.window-toggle .wlbl { font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 2px }
+.window-pill { padding: 3px 12px; border: 1px solid #e5e7eb; border-radius: 999px; background: white; color: #6b7280; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s }
+.window-pill:hover { border-color: #9ca3af; color: #374151 }
+.window-pill.active { background: #1f2937; border-color: #1f2937; color: white }
+.window-note { font-size: 11px; color: #6b7280; margin: 0 0 8px 0 }
+
+.stuck-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px }
+.stuck-card { padding: 8px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; flex: 1; min-width: 130px; cursor: pointer; transition: all 0.15s }
+.stuck-card:hover { background: #fee2e2; border-color: #f87171 }
+.stuck-card.zero { background: #f9fafb; border-color: #e5e7eb; cursor: default }
+.stuck-card.zero:hover { background: #f9fafb; border-color: #e5e7eb }
+.stuck-card.active { background: #991b1b; border-color: #991b1b }
+.stuck-card.active .num, .stuck-card.active .lbl { color: white }
+.stuck-card .num { font-size: 18px; font-weight: 700; color: #991b1b }
+.stuck-card.zero .num { color: #9ca3af }
+.stuck-card .lbl { font-size: 11px; color: #6b7280 }
+.stuck-card .thresh { font-size: 9px; color: #9ca3af; margin-top: 2px }
+.stuck-card.active .thresh { color: #fecaca }
+
+.active-filter-bar { background: #1f2937; color: white; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; font-size: 12px; display: none; align-items: center; gap: 8px }
+.active-filter-bar.show { display: flex }
+.active-filter-bar button { background: white; color: #1f2937; border: none; padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600 }
+
+.bought-breakdown { font-size: 11px; color: #6b7280; margin: 6px 0 16px 0; padding-left: 4px }
+.bought-breakdown span { margin-right: 14px }
+.bought-breakdown b { color: #374151 }
+
+.gap-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px }
+.gap-card { padding: 8px 12px; background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; flex: 1; min-width: 160px; cursor: help }
+.gap-card.zero { background: #f0fdf4; border-color: #bbf7d0 }
+.gap-card .num { font-size: 18px; font-weight: 700; color: #92400e }
+.gap-card.zero .num { color: #16a34a }
+.gap-card .lbl { font-size: 10px; color: #78716c; line-height: 1.3 }
+
+.filters { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; padding: 10px 12px; background: white; border-radius: 6px; border: 1px solid #e5e7eb }
+.filters label { font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em }
+.filters input, .filters select { padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px }
+
+.tbl { width: 100%; border-collapse: collapse; background: white; border-radius: 6px; overflow: hidden; border: 1px solid #e5e7eb; font-size: 11px }
+.tbl th { background: #f3f4f6; padding: 8px 6px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em }
+.tbl td { padding: 6px; border-bottom: 1px solid #f3f4f6 }
+.tbl tr:hover td { background: #f9fafb }
+.tbl .pill { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 600 }
+.pill.PREPB { background: #ede9fe; color: #6d28d9 }
+.pill.PREPA { background: #cffafe; color: #155e75 }
+.pill.NA { background: #f3f4f6; color: #6b7280 }
+.pill.Canceled { background: #1f2937; color: white; margin-left: 4px }
+.tbl .stage-cell { white-space: nowrap }
+.tbl .stage-cell.dash { color: #d1d5db; text-align: center }
+.tbl .title-cell { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.tbl tr.canceled-row td { background: #fef2f2; opacity: 0.7 }
+.tbl tr.canceled-row .title-cell { text-decoration: line-through }
+
+.legend { font-size: 10px; color: #6b7280; margin-top: 4px }
+
+/* Coach-look polish (additive 2026-07-12): embossed cards + hover lift. CSS-only — no data/JS changes */
+:root { --cardShadow: 0 1px 3px rgba(20,24,40,.06); --liftShadow: 0 10px 26px rgba(20,24,40,.12) }
+.stage { border-top: 1px solid #e9e9e4; border-right: 1px solid #e9e9e4; border-bottom: 1px solid #e9e9e4;
+         border-radius: 10px; box-shadow: var(--cardShadow); transition: transform .15s, box-shadow .15s }
+.stage:hover { transform: translateY(-3px); box-shadow: var(--liftShadow) }
+.stuck-card { border-radius: 10px; box-shadow: var(--cardShadow); transition: transform .15s, box-shadow .15s, background .15s, border-color .15s }
+.stuck-card:hover:not(.zero) { transform: translateY(-2px); box-shadow: var(--liftShadow) }
+.window-pill { box-shadow: var(--cardShadow) }
+.window-pill:hover { transform: translateY(-1px) }
+.tbl tbody tr { transition: background .12s }
+.tbl tbody tr:hover { background: #f7f8f6 }
+</style>
+</head>
+<body>
+
+<h1>Lifecycle Stages — Item Journey</h1>
+<div class="sub">As of <span id="asof"></span> · <span id="totalUnits">…</span> total units · <span id="batchCount">…</span> batches · Read directly from <a href="https://docs.google.com/spreadsheets/d/{{ITEM_JOURNEY_SHEET_ID}}/edit" target="_blank" rel="noopener">Item Journey Repo</a></div>
+<div style="display:flex;gap:10px;align-items:center;margin:0 0 8px"><button id="reloadBtn" style="font:12px inherit;padding:4px 11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">Reload</button><span id="liveStatus" style="font-size:12px;color:#6b7280"></span></div>
+
+<!-- TRUE CURRENT PIPELINE — rebuilt fresh from live sources on every refresh.
+     Amazon-side buckets + stranded = SP-API live; prep-center bucket + inventory-value
+     basis = freshest SellerBoard planner snapshot; throughput = SellerBoard P&L.
+     Card $ are computed at sb_cost and SUM EXACTLY to the displayed total. -->
+<div id="truePipeline"></div>
+
+<div class="section-h">Historical journey funnel — unit records only, back-half incomplete <span class="hint">(% of applicable;<span id="prepHint"> N/A-prep items skip D/E/F.</span> rows missing Sold/Disbursed/Bank dates make a later stage read lower than reality — these are DATA GAPS, not real bottlenecks. Use the True Current Pipeline above for dollars.)</span></div>
+<!-- TIME WINDOW (additive 2026-07-11): pill row only appears when the feed carries data.windows +
+     data.window_options; the note underneath is ALWAYS visible and states the data window. -->
+<div class="window-toggle" id="windowToggle"></div>
+<div class="window-note" id="windowNote"></div>
+<div class="funnel-scroll"><div class="funnel" id="funnel"></div></div>
+<div class="bar-scroll"><div class="bar" id="funnelBar"></div></div>
+
+<div class="section-h">Stuck — units that haven't progressed past this stage <span class="hint">(per-stage thresholds; click any card to filter batches below)</span></div>
+<div class="stuck-row" id="stuck"></div>
+<div class="bought-breakdown" id="boughtBreakdown"></div>
+<div class="bought-breakdown" id="canceledSummary"></div>
+
+<div class="section-h">Data Gaps <span class="hint">(later stage filled but earlier empty — feed gap, NOT a real bottleneck)</span></div>
+<div class="gap-row" id="gaps"></div>
+
+<div class="section-h">Batches</div>
+<div class="active-filter-bar" id="activeFilterBar"></div>
+<div class="filters">
+  <label>Filter:</label>
+  <input type="text" id="filterText" placeholder="Search ASIN, title, batch ID..." />
+  <span id="prepFilterWrap"><label>Prep:</label>
+  <select id="filterPrep">
+    <option value="">All</option>
+    <option>PREPB</option>
+    <option>PREPA</option>
+    <option>N/A</option>
+  </select></span>
+  <label>Sort:</label>
+  <select id="sortBy">
+    <option value="date">Date (newest first)</option>
+    <option value="date-asc">Date (oldest first)</option>
+    <option value="stuck">Most stuck first</option>
+    <option value="batch">Batch ID</option>
+  </select>
+  <span id="count" style="margin-left:auto; font-size:11px; color:#6b7280"></span>
+</div>
+<table class="tbl" id="batchTable">
+<thead><tr id="headRow"></tr></thead>
+<tbody id="batchBody"></tbody>
+</table>
+<div class="legend">Each cell shows X/Y where X = units with a record at that stage, Y = total in batch. Stages are counted independently, so a later stage can read higher than an earlier one when the earlier date wasn't captured (a data gap, not real backflow). Color intensity = fill ratio.<span id="prepLegend"> N/A-prep batches show "—" for D/E/F because their pipeline skips the prep center.</span></div>
+
+<script>
+const FILE_ID = "{{LIFECYCLE_FEED_FILE_ID}}";
+const TOOL = "{{DRIVE_READ_TOOL}}";
+// The Drive connector markdown-escapes the JSON on read; undo that before parsing.
+// STRETCH FABRIC: strip EVERY connector-added backslash that doesn't begin a valid JSON escape,
+// instead of a hand-picked list — the fixed list silently broke the whole tile the day a feed
+// carried a char it didn't know (a '"' in a product title, field 2026-07-10; a '~' before that).
+// Safe because the robot's feed is pure ASCII + &#NNN; entities with ZERO legitimate backslashes.
+function parseFeed(fc){return JSON.parse(fc.replace(/\\(?!["\\\/bfnrtu])/g,""));}
+
+let DATA = null, STAGES = null, PANEL = null, TH = null;
+const PREP_SKIP_NA = new Set(['D','E','F']);
+// No-prep-center switch, baked by the setup wizard from the user's answer. When false, the
+// board drops the three prep lanes (D/E/F) and shows a clean from-home journey with friendly
+// labels. When true, everything renders exactly as before (full 9-stage board).
+const HAS_PREP_CENTER = {{HAS_PREP_CENTER}};
+// No-SellerBoard switch (baked by the wizard). When false, the panel header drops the
+// "SellerBoard planner" label (the $ basis is the cloud Costs tab, not SellerBoard).
+const HAS_SELLERBOARD = {{HAS_SELLERBOARD}};
+// No-bank-feed switch (baked by the wizard). When false, stage J's advisory text stops
+// implying a bank feed is "coming" (a from-home user may never wire one).
+const HAS_BANK_FEED = {{HAS_BANK_FEED}};
+// When true, stage K ("in bank") is filled by ESTIMATE (Amazon transfer date + 1 business day),
+// not a real bank feed -- the journey completes, but K is labeled "est" so it doesn't imply
+// bank-confirmed. Upgrades to a confirmed date if the user later connects a bank feed.
+const BANK_FEED_IS_ESTIMATE = {{BANK_FEED_IS_ESTIMATE}};
+const STAGE_TH   = {Bought:'Bought', D:'D Deliv', E:'E Recv', F:'F Ship', G:'G AmzRcv', H:'H Prime', I:'I Sold', J:'J Disb', K:'K Bank'};
+const NOPREP_TH  = {Bought:'Bought', G:'At Amazon', H:'Prime', I:'Sold', J:'Paid Out', K:'In Bank'};
+const NOPREP_LABEL = {G:'Arrived at Amazon', J:'Paid Out', K:'In the Bank'};
+
+function money(n){ return '$' + Math.round(n).toLocaleString(); }
+
+function renderPanel() {
+  const el = document.getElementById('truePipeline');
+  if (!PANEL || !el) return;
+  const P = PANEL;
+  const plannerDot = P.plannerStale ? '🔴' : '🟠';
+  const spapiDot = P.spapiLive ? '🟢' : '🔴';
+  const plannerStaleTxt = P.plannerStale
+    ? ' <b style="color:#dc2626">— '+P.plannerAgeDays+'d old, run replens refresh</b>' : '';
+  const spapiStaleTxt = P.spapiLive ? '' : ' <b style="color:#dc2626">— SP-API pull failed, last snapshot</b>';
+  const cards = P.cards.map(function(c){
+    const liveTxt = c.live ? ' · '+c.live : '';
+    const valColor = c.stranded ? '#dc2626' : '#1f2937';
+    const border = c.stranded ? '#fde68a' : '#d1fae5';
+    return '<div style="flex:1;min-width:120px;background:#fff;border:1px solid '+border+';border-left:4px solid '+c.color+';border-radius:7px;padding:9px 11px">' +
+      '<div style="font-size:10px;text-transform:uppercase;color:#6b7280;font-weight:600">'+c.label+'</div>' +
+      '<div style="font-size:20px;font-weight:700;color:'+valColor+'">'+money(c.value)+'</div>' +
+      '<div style="font-size:11px;color:#9ca3af">'+c.units.toLocaleString()+' units · '+c.dot+(liveTxt)+'</div>' +
+    '</div>';
+  }).join('');
+  const tp = P.throughput;
+  el.innerHTML =
+    '<div style="background:linear-gradient(180deg,#f0fdf4,#ffffff);border:1px solid #16a34a;border-radius:10px;padding:14px 16px;margin:4px 0 18px">' +
+      '<div style="font-size:14px;font-weight:700;color:#065f46;margin-bottom:2px">✅ Where your money is RIGHT NOW — True Current Pipeline</div>' +
+      '<div style="font-size:11px;color:#6b7280;margin-bottom:12px">' +
+        P.totalUnits.toLocaleString()+' units · <b style="color:#065f46">'+money(P.totalValue)+' at cost</b> ' +
+        ' &nbsp;·&nbsp; '+spapiDot+' SP-API '+P.spapiAsOf+spapiStaleTxt +
+        (HAS_SELLERBOARD ? (' · '+plannerDot+' SellerBoard planner '+P.plannerAsOf+plannerStaleTxt) : ' · cost basis: Buy Cost from your Bought sheet') +
+        ' &nbsp;·&nbsp; ties to the <a href="../money-map/index.html" style="color:#065f46">Money Map</a></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+cards+'</div>' +
+      '<div style="font-size:10px;color:#9ca3af;margin-top:8px">Throughput: ~'+tp.unitsPerDay+' units/day selling, ~'+money(tp.payoutPerDay)+'/day landing in the bank ('+tp.window+'). ' +
+      (P.notes||'') + '</div>' +
+    '</div>';
+}
+let stuckFilter = null;
+
+function thresholdLabel(stage) {
+  if (stage === 'Bought') return TH.Bought_nonNA + 'd+ (' + TH.Bought_NA + 'd+ for N/A)';
+  return (TH[stage] || 7) + 'd+';
+}
+
+// Messaging for a stage whose count is driven by a logging gap / corruption, not real progress.
+// Rendered orange/advisory (no red "stuck" number, not clickable) instead of a false bottleneck.
+function untrustedMsg(k) {
+  if (k === 'D') return { word: 'under-logged',
+    title: 'Delivered-to-Prep is badly under-logged (no carrier-delivered feed yet) — advisory only, not a bottleneck. Un-grays automatically once D ≥ E.' };
+  if (k === 'E') return { word: 'received at prep',
+    title: 'Prep-received (E) is filled from the PREPA receiving sheet. Grayed while the prep-shipped feed (F) hasn\x27t caught up — advisory, not a bottleneck. Un-grays automatically once F ≥ E.' };
+  if (k === 'F') return { word: 'in transit to Amazon',
+    title: 'Prep-shipped (F) is filled from the inbound shipment date — these units have left the prep center but Amazon hasn\x27t received them yet, so they\x27re in normal transit, NOT stuck. Un-grays automatically once Amazon\x27s receipts catch up (G ≥ F).' };
+  if (k === 'H') return { word: 'rebuilding',
+    title: 'Column H (Prime eligible) has corrupted dates; stuck count suppressed until rebuilt from Amazon\x27s ledger.' };
+  if (k === 'J') return HAS_BANK_FEED
+    ? { word: 'awaiting bank feed',
+        title: 'Disbursement (J) is filled from Amazon, but the bank-deposit feed (K) isn\x27t wired yet — advisory only, not a bottleneck. Un-grays automatically once K ≥ J.' }
+    : { word: 'Amazon-confirmed · no bank tie-in',
+        title: 'Disbursement (J) is confirmed by Amazon. You haven\x27t connected a bank feed, so we can\x27t confirm the money landed in your account (K) — this stays advisory by design, not a bottleneck.' };
+  return { word: 'no source', title: 'No trustworthy source for this stage yet — advisory only.' };
+}
+
+// ---- TIME WINDOW TOGGLE (additive 2026-07-11) -------------------------------------------------
+// The feed MAY carry pre-computed rolling windows: data.windows keyed by day-count STRINGS
+// ({"30":{reached:{...9 stage keys...},units:N,batches:M}, ..., "0" = all history}), plus
+// data.window_options ([30,45,90,180,0]), data.earliest_bought ("YYYY-MM-DD") and
+// data.history_days. Every read here is SOFT (same doctrine as counts||reached||{}): if the
+// robot hasn't shipped these keys yet — or ships them malformed — windowConfig() returns null,
+// the pill row stays hidden, and every existing render path behaves exactly as before.
+// [window-toggle] BEGIN
+let windowSel = 0;   // selected window in days; 0 = all history (the default)
+
+function windowConfig() {
+  // null unless the feed carries a well-formed windows block with >=1 real bounded window.
+  const w = DATA && DATA.windows, opts = DATA && DATA.window_options;
+  if (!w || typeof w !== 'object' || Array.isArray(w)) return null;
+  if (!Array.isArray(opts) || opts.length === 0) return null;
+  let valid = opts.filter(function(d){
+    if (typeof d !== 'number' || !isFinite(d) || d < 0) return false;
+    if (d === 0) return true;   // "All" needs no windows entry — it uses the full funnel data
+    const e = w[String(d)];
+    return !!(e && typeof e === 'object' && !Array.isArray(e) && e.reached && typeof e.reached === 'object' && !Array.isArray(e.reached));
+  });
+  valid = valid.filter(function(d, i){ return valid.indexOf(d) === i; });   // de-dupe
+  if (!valid.some(function(d){ return d !== 0; })) return null;
+  if (valid.indexOf(0) < 0) valid.push(0);   // "All" is always offered, and always last-resort safe
+  return { windows: w, options: valid };
+}
+
+function activeWindowEntry() {
+  // the selected window's feed entry, or null (= render the existing all-history paths)
+  if (!windowSel) return null;
+  const cfg = windowConfig();
+  if (!cfg) return null;
+  const e = cfg.windows[String(windowSel)];
+  return (e && typeof e === 'object' && !Array.isArray(e) && e.reached && typeof e.reached === 'object' && !Array.isArray(e.reached)) ? e : null;
+}
+
+function windowFunnelSource() {
+  // renderFunnel's stage-count source: the selected window's monotonic reached map, else the
+  // existing full-history funnel — untouched path when no window is active.
+  const e = activeWindowEntry();
+  return e ? (e.reached || {}) : ((DATA && DATA.funnel) || {});
+}
+
+function windowCutoff(days) {
+  // ms timestamp of the window start, anchored to the FEED's asOf (matches the robot's math);
+  // client clock only as a fallback when asOf is missing/unparseable. null = no active window.
+  if (!days || !activeWindowEntry()) return null;
+  const asof = Date.parse(String((DATA && DATA.asOf) || '').slice(0, 10));
+  const base = isNaN(asof) ? Date.now() : asof;
+  return base - days * 86400000;
+}
+
+function windowKeepsRow(r, cut) {
+  // batch-table row filter: keep rows bought inside the window. A missing/unparseable date
+  // KEEPS the row visible — never silently hide data.
+  const t = Date.parse(String((r && r.date) || '').slice(0, 10));
+  return isNaN(t) ? true : t >= cut;
+}
+
+function onWindowClick(d) {
+  const cfg = windowConfig();
+  windowSel = (cfg && typeof d === 'number' && isFinite(d) && d > 0 && cfg.options.indexOf(d) >= 0) ? d : 0;
+  fuse('window toggle', 'windowToggle', renderWindowToggle);
+  fuse('window label', 'windowNote', renderWindowNote);
+  fuse('funnel', 'funnel', renderFunnel);
+  fuse('batch table', 'batchBody', renderTable);
+}
+
+function renderWindowToggle() {
+  const el = document.getElementById('windowToggle');
+  if (!el) return;
+  const cfg = windowConfig();
+  if (!cfg) {   // GRACEFUL ABSENCE: no/malformed windows -> no toggle row, tile behaves as today
+    el.classList.remove('show'); el.innerHTML = ''; windowSel = 0; return;
+  }
+  el.innerHTML = '<span class="wlbl">Window:</span>' + cfg.options.map(function(d){
+    const lbl = d === 0 ? 'All' : 'Last ' + d + 'd';
+    return '<button type="button" class="window-pill' + (windowSel === d ? ' active' : '') + '" onclick="onWindowClick(' + d + ')">' + lbl + '</button>';
+  }).join('');
+  el.classList.add('show');
+}
+
+function renderWindowNote() {
+  // Always-visible data-window label. Only states facts the feed actually carries — absent
+  // earliest_bought/history_days degrade to asOf-only wording, never a guessed date.
+  const el = document.getElementById('windowNote');
+  if (!el) return;
+  const entry = activeWindowEntry();
+  if (entry) {
+    let txt = 'Showing: last ' + windowSel + ' days';
+    if (typeof entry.units === 'number' && isFinite(entry.units)) txt += ' · ' + entry.units.toLocaleString() + ' units';
+    if (typeof entry.batches === 'number' && isFinite(entry.batches)) txt += ' · ' + entry.batches.toLocaleString() + ' batches';
+    el.textContent = txt;
+    return;
+  }
+  const eb = DATA && DATA.earliest_bought, hd = DATA && DATA.history_days;
+  if (typeof eb === 'string' && eb && typeof hd === 'number' && isFinite(hd)) {
+    el.textContent = 'Showing: all history — since ' + eb + ' (' + Math.round(hd) + ' days)';
+  } else if (typeof eb === 'string' && eb) {
+    el.textContent = 'Showing: all history — since ' + eb;
+  } else if (DATA && DATA.asOf) {
+    el.textContent = 'Showing: all history (as of ' + DATA.asOf + ')';
+  } else {
+    el.textContent = 'Showing: all history';
+  }
+}
+// [window-toggle] END
+// ------------------------------------------------------------------------------------------------
+
+function renderFunnel() {
+  // Soft reads: a missing feed field renders as zeros/blanks, never a dead board.
+  // TIME WINDOW (additive 2026-07-11): a selected window swaps the stage counts to the feed's
+  // pre-computed data.windows[d].reached; All (or an absent/malformed windows block) keeps the
+  // existing full-history path unchanged.
+  const winEntry = activeWindowEntry();
+  const f = windowFunnelSource(), s = DATA.stuckByStage || {}, appl = DATA.applicableCount || {};
+  document.getElementById('funnel').innerHTML = STAGES.map(function(arr) {
+    const k=arr[0], label=arr[1], color=arr[2];
+    const v = f[k] || 0;
+    const apply = appl[k] || 0;
+    const pct = apply ? Math.round(v / apply * 100) : 0;
+    const stuck = s[k] || 0;
+    const trust = DATA.stageTrust || {};
+    const untrusted = (trust[k] === false) || (k === 'H' && DATA.hTrusted === false);
+    const um = untrustedMsg(k);
+    // Window view: % applicable + stuck are ALL-HISTORY numbers — pairing them with windowed
+    // counts would state wrong facts, so a window shows window-honest lines instead.
+    const pctHtml = winEntry
+      ? '<div class="pct">'+(f.Bought ? Math.round(v / f.Bought * 100) : 0)+'% of '+(f.Bought||0).toLocaleString()+' bought in window</div>'
+      : '<div class="pct">'+pct+'% of '+apply.toLocaleString()+' applicable</div>';
+    const stuckHtml = winEntry
+      ? '<div class="stuck zero" title="Stuck counts cover all history — switch the window to All to see them.">window view</div>'
+      : untrusted
+      ? '<div class="stuck" style="color:#f59e0b" title="'+um.title+'">'+um.word+'</div>'
+      : (k !== 'K')
+      ? ('<div class="stuck ' + (stuck===0?'zero':'') + '">' + (stuck===0?'no stuck':stuck.toLocaleString()+' stuck') + '</div>')
+      : (BANK_FEED_IS_ESTIMATE
+          ? '<div class="pct" style="color:#c65d2e" title="In-bank dates are estimated (Amazon transfer + 1 business day). Connect a bank feed to confirm the exact day.">complete · est</div>'
+          : '<div class="pct" style="color:#16a34a">complete</div>');
+    return '<div class="stage" style="border-left-color:'+color+'">' +
+      '<div class="lbl">'+label+'</div>' +
+      '<div class="val" style="color:'+color+'">'+v.toLocaleString()+'</div>' +
+      pctHtml +
+      stuckHtml +
+    '</div>';
+  }).join('');
+  const total = f.Bought;
+  document.getElementById('funnelBar').innerHTML = STAGES.map(function(arr) {
+    const k=arr[0], label=arr[1], color=arr[2];
+    const v = f[k] || 0;
+    if (v === 0) return '';
+    const w = (v / total) * 100;
+    const trust = DATA.stageTrust || {};
+    const untrusted = (trust[k] === false) || (k === 'H' && DATA.hTrusted === false);
+    const op = untrusted ? ';opacity:0.45' : '';
+    const note = untrusted ? (k === 'D' ? ' — under-logged (advisory)' : k === 'E' ? ' — received at prep (advisory)' : k === 'F' ? ' — in transit to Amazon (advisory)' : k === 'J' ? (HAS_BANK_FEED ? ' — awaiting bank feed (advisory)' : ' — Amazon-confirmed, no bank tie-in (advisory)') : ' — CORRUPTED, rebuilding from Amazon') : '';
+    return '<div class="bar-seg" style="background:'+color+'; flex: '+v+op+'" title="'+label+': '+v+' ('+Math.round(w)+'%)'+note+'">'+(w>8?v.toLocaleString():'')+'</div>';
+  }).join('');
+}
+
+function renderStuck() {
+  const s = DATA.stuckByStage || {};
+  document.getElementById('stuck').innerHTML = STAGES.filter(function(arr){return arr[0]!=='K';}).map(function(arr) {
+    const k=arr[0], label=arr[1];
+    const trust = DATA.stageTrust || {};
+    const untrusted = (trust[k] === false) || (k === 'H' && DATA.hTrusted === false);
+    if (untrusted) {
+      // No onclick: an untrusted stage must never become the active stuck-filter.
+      const um = untrustedMsg(k);
+      const sub = (k === 'D') ? 'under-logged — advisory'
+                : (k === 'E') ? 'received at prep — advisory'
+                : (k === 'F') ? 'in transit to Amazon — advisory'
+                : (k === 'H') ? 'rebuilding from Amazon'
+                : (k === 'J') ? (HAS_BANK_FEED ? 'awaiting bank feed — advisory' : 'Amazon-confirmed, no bank tie-in — advisory')
+                : 'no trustworthy source';
+      return '<div class="stuck-card zero" data-stage="'+k+'" title="'+um.title+'">' +
+        '<div class="num" style="color:#f59e0b">—</div>' +
+        '<div class="lbl">'+label+'</div>' +
+        '<div class="thresh" style="color:#f59e0b">'+sub+'</div>' +
+      '</div>';
+    }
+    const n = s[k] || 0;
+    const activeCls = stuckFilter === k ? ' active' : '';
+    const zeroCls = n === 0 ? ' zero' : '';
+    return '<div class="stuck-card' + zeroCls + activeCls + '" data-stage="'+k+'" onclick="onStuckClick(\x27'+k+'\x27, '+n+')">' +
+      '<div class="num">'+n.toLocaleString()+'</div>' +
+      '<div class="lbl">stuck at '+label+'</div>' +
+      '<div class="thresh">'+thresholdLabel(k)+'</div>' +
+    '</div>';
+  }).join('');
+  const bp = DATA.stuckAtBoughtByPrep || {};
+  document.getElementById('boughtBreakdown').innerHTML = HAS_PREP_CENTER
+    ? ('Of the ' + (s.Bought||0).toLocaleString() + ' stuck at Bought: ' +
+       '<span><b>'+(bp['N/A']||0)+'</b> N/A direct-ship (Amazon not received)</span>' +
+       '<span><b>'+(bp.PREPB||0)+'</b> PREPB</span>' +
+       '<span><b>'+(bp.PREPA||0)+'</b> PREPA</span>' +
+       '<span style="color:#9ca3af">· unassigned-prep batches excluded</span>')
+    : ('<span><b>'+(s.Bought||0).toLocaleString()+'</b> bought, not yet arrived at Amazon</span>');
+  // Render excluded units: whole-batch exits (excludedByStatus) + per-unit exits (excludedByExit,
+  // single canceled orders inside a live batch, or post-Amazon returns/removals from col L).
+  const excl = DATA.excludedByStatus || {};
+  const exExit = DATA.excludedByExit || {};
+  const csEl = document.getElementById('canceledSummary');
+  const batchParts = Object.keys(excl).map(function(k){return '<b>'+excl[k].units.toLocaleString()+' '+k+'</b> ('+excl[k].batches+' batch'+(excl[k].batches===1?'':'es')+')';});
+  const unitParts = Object.keys(exExit).map(function(k){return '<b>'+exExit[k].units.toLocaleString()+' '+k+'</b>';});
+  if (batchParts.length > 0 || unitParts.length > 0) {
+    csEl.style.display = 'block';
+    let html = '';
+    if (batchParts.length) html += '<span style="color:#9ca3af">Excluded from all counts:</span> ' + batchParts.join(' · ');
+    if (unitParts.length) html += (batchParts.length ? ' &nbsp;·&nbsp; ' : '') + '<span style="color:#9ca3af">Per-unit exits:</span> ' + unitParts.join(' · ');
+    csEl.innerHTML = html;
+  } else {
+    csEl.style.display = 'none';
+  }
+}
+
+function onStuckClick(stage, count) {
+  if (count === 0) return;
+  stuckFilter = (stuckFilter === stage) ? null : stage;
+  renderStuck();
+  renderTable();
+  renderFilterBar();
+}
+
+function renderFilterBar() {
+  const bar = document.getElementById('activeFilterBar');
+  if (!stuckFilter) { bar.classList.remove('show'); bar.innerHTML = ''; return; }
+  const stageRow = STAGES.find(function(a){return a[0]===stuckFilter;});
+  const stageLabel = stageRow ? stageRow[1] : stuckFilter;
+  const n = (DATA.stuckByStage || {})[stuckFilter] || 0;
+  bar.classList.add('show');
+  bar.innerHTML = '<span>Filtering to batches with units stuck at <b>' + stageLabel + '</b> (' + thresholdLabel(stuckFilter) + ', ~' + n.toLocaleString() + ' units across batches below)</span>' +
+    '<button onclick="onStuckClick(stuckFilter, 1)">Clear filter</button>';
+}
+
+// A batch "has units stuck at <stage>" iff at least one of its units' FURTHEST filled stage
+// is <stage> (past threshold). That per-unit-furthest result is emitted per batch as
+// b.stuckByStage, so the filter and the stuck-card count are one source of truth -- a
+// fully-sold batch (every unit furthest = K) has stuckByStage = {} and never shows.
+function batchHasStuckAt(b, stage) {
+  return !!(b.stuckByStage && b.stuckByStage[stage] > 0);
+}
+
+function renderGaps() {
+  const g = DATA.dataGaps || {};
+  const GAPS = [];
+  if (HAS_PREP_CENTER) {
+    GAPS.push(['D_missing_but_E_filled', 'D empty, E filled', 'Gmail FBA/Delivered data gap']);
+    GAPS.push(['E_missing_but_F_filled', 'E empty, F filled', 'Prep receive record missing']);
+    GAPS.push(['F_missing_but_G_filled', 'F empty, G filled', 'Prep shipped record missing (PREPA outbound)']);
+  }
+  GAPS.push(['G_missing_but_I_filled', 'G empty, I filled', 'Amazon receive missing despite sale']);
+  GAPS.push(['J_missing_but_K_filled', 'J empty, K filled', 'Disbursement missing despite bank deposit']);
+  document.getElementById('gaps').innerHTML = GAPS.map(function(arr) {
+    const k=arr[0], label=arr[1], desc=arr[2];
+    const n = g[k] || 0;
+    return '<div class="gap-card ' + (n===0?'zero':'') + '" title="'+desc+'">' +
+      '<div class="num">'+n.toLocaleString()+'</div>' +
+      '<div class="lbl">'+label+'</div>' +
+    '</div>';
+  }).join('');
+}
+
+function buildHeader() {
+  // Header is drawn from STAGES so it always matches the body (a no-prep user's D/E/F never
+  // appear). The per-batch Prep column + prep filter are hidden when there's no prep center.
+  const fixed = ['Batch','Bought','Title','ASIN'];
+  if (HAS_PREP_CENTER) fixed.push('Prep');
+  fixed.push('Units');
+  const stageThs = STAGES.map(function(s){
+    const k = s[0];
+    const t = HAS_PREP_CENTER ? (STAGE_TH[k] || k) : (NOPREP_TH[k] || s[1]);
+    return '<th>' + t + '</th>';
+  }).join('');
+  document.getElementById('headRow').innerHTML =
+    fixed.map(function(h){ return '<th>' + h + '</th>'; }).join('') + stageThs;
+  if (!HAS_PREP_CENTER) {
+    ['prepFilterWrap','prepHint','prepLegend'].forEach(function(id){
+      const el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+  }
+}
+
+function renderTable() {
+  const txt = document.getElementById('filterText').value.toLowerCase().trim();
+  const prep = document.getElementById('filterPrep').value;
+  const sort = document.getElementById('sortBy').value;
+  let rows = (DATA.batchList || []).slice();
+  if (txt) rows = rows.filter(function(r){return (r.title||'').toLowerCase().includes(txt) || (r.asin||'').toLowerCase().includes(txt) || String(r.batchId).includes(txt);});
+  if (prep) rows = rows.filter(function(r){return r.prep === prep;});
+  if (stuckFilter) rows = rows.filter(function(r){return batchHasStuckAt(r, stuckFilter);});
+  // TIME WINDOW (additive 2026-07-11): keep rows bought inside the selected window, anchored to
+  // the feed's asOf. Missing/unparseable dates KEEP the row — never silently hide (windowKeepsRow).
+  const winCut = windowCutoff(windowSel);
+  if (winCut !== null) rows = rows.filter(function(r){ return windowKeepsRow(r, winCut); });
+  if (sort === 'date') rows.sort(function(a,b){return b.date.localeCompare(a.date);});
+  else if (sort === 'date-asc') rows.sort(function(a,b){return a.date.localeCompare(b.date);});
+  else if (sort === 'batch') rows.sort(function(a,b){return a.batchId - b.batchId;});
+  else if (sort === 'stuck') {
+    rows.sort(function(a,b){
+      const isNAa = a.prep === 'N/A', isNAb = b.prep === 'N/A';
+      const stagesA = isNAa ? ['G','H','I','J','K'] : ['D','E','F','G','H','I','J','K'];
+      const stagesB = isNAb ? ['G','H','I','J','K'] : ['D','E','F','G','H','I','J','K'];
+      const ca = a.counts || a.reached || {}, cb = b.counts || b.reached || {};
+      const ga = stagesA.filter(function(k){return (ca[k]||0) < a.unitCount;}).length;
+      const gb = stagesB.filter(function(k){return (cb[k]||0) < b.unitCount;}).length;
+      return gb - ga;
+    });
+  }
+  document.getElementById('count').textContent = rows.length + ' / ' + (DATA.batchList || []).length + ' batches' + (DATA.feedTrimmed ? ' · ' + DATA.feedTrimmed : '');
+  document.getElementById('batchBody').innerHTML = rows.map(function(r) {
+    const prepClass = r.prep === 'PREPB' ? 'PREPB' : r.prep === 'PREPA' ? 'PREPA' : 'NA';
+    const isNA = r.prep === 'N/A';
+    // THE 2026-07-10 crash site: a batch seeded from Bought with no journey stamps had no counts
+    // object at all -> undefined['Bought'] threw -> the WHOLE table aborted and the error banner
+    // hijacked the money panel. Soft read: counts, else reached (renamed feeds), else empty.
+    const cnt = r.counts || r.reached || {};
+    const stageCells = STAGES.map(function(arr) {
+      const k=arr[0], label=arr[1], color=arr[2];
+      if (isNA && PREP_SKIP_NA.has(k)) {
+        return '<td class="stage-cell dash" title="'+label+': N/A">—</td>';
+      }
+      const v = cnt[k] || 0;
+      const total = r.unitCount;
+      const ratio = total ? v/total : 0;
+      const bg = ratio === 0 ? '#f3f4f6' : ratio === 1 ? color : color + Math.floor(40 + ratio*160).toString(16);
+      const fg = ratio > 0.4 ? 'white' : '#374151';
+      return '<td class="stage-cell" style="background:'+bg+'; color:'+fg+'; text-align:center; font-weight:600" title="'+label+': '+v+'/'+total+'">'+v+'/'+total+'</td>';
+    }).join('');
+    return '<tr' + (r.status && r.status!=="Active"?' class="canceled-row"':'') + '>' +
+      '<td>'+r.batchId+'</td>' +
+      '<td>'+r.date+'</td>' +
+      '<td class="title-cell" title="'+(r.title||'').replace(/"/g,'&quot;')+'">'+(r.title||'')+'</td>' +
+      '<td><code style="font-size:10px">'+r.asin+'</code></td>' +
+      (HAS_PREP_CENTER ? ('<td><span class="pill '+prepClass+'">'+(r.prep||'—')+'</span>'+(r.status && r.status!=='Active'?'<span class="pill Canceled">'+r.status.toUpperCase()+'</span>':'')+'</td>') : '') +
+      '<td style="text-align:right">'+r.unitCount+'</td>' +
+      stageCells +
+    '</tr>';
+  }).join('');
+}
+
+// SECTION FUSE: each board section renders inside its own try/catch, so one section choking on
+// unexpected data shows a small warning IN ITS OWN SLOT and every other section stays lit.
+// (2026-07-10: a single throw in renderTable blanked the table AND hijacked the money panel.)
+function fuse(name, elId, fn) {
+  try { fn(); } catch (e) {
+    const el = document.getElementById(elId);
+    if (el) el.innerHTML = '<div style="color:#92400e;background:#fffbeb;border:1px solid #fde68a;' +
+      'border-radius:8px;padding:8px;font-size:12px">⚠ The ' + name + ' section couldn\x27t render (' +
+      String((e && e.message) || e) + ') — the rest of the board is unaffected. Hit Reload; if it ' +
+      'persists, the feed has a field this section doesn\x27t expect.</div>';
+  }
+}
+
+function renderAll() {
+  TH = DATA.stuckThresholds || {Bought_nonNA:7, Bought_NA:14, D:5, E:7, F:14, G:2, H:30, I:14, J:5};
+  document.getElementById('asof').textContent = DATA.asOf || '';
+  document.getElementById('totalUnits').textContent = (DATA.totalUnits || 0).toLocaleString();
+  document.getElementById('batchCount').textContent = ((DATA.batchList || []).length).toLocaleString();
+  fuse('money panel', 'truePipeline', renderPanel);
+  fuse('window toggle', 'windowToggle', renderWindowToggle);
+  fuse('window label', 'windowNote', renderWindowNote);
+  fuse('funnel', 'funnel', renderFunnel);
+  fuse('stuck cards', 'stuck', renderStuck);
+  fuse('data gaps', 'gaps', renderGaps);
+  fuse('table header', 'headRow', buildHeader);
+  fuse('batch table', 'batchBody', renderTable);
+  fuse('filter bar', 'activeFilterBar', renderFilterBar);
+}
+
+async function load() {
+  const st = document.getElementById('liveStatus');
+  if (st) st.textContent = 'Loading…';
+  try {
+    const r = await window.cowork.callMcpTool(TOOL, {fileId: FILE_ID});
+    if (r.isError) throw new Error("connector error: " + JSON.stringify(r.content));
+    const w = r.structuredContent ?? JSON.parse(r.content[0].text);
+    const feed = parseFeed(w.fileContent);
+    if (!feed.data || !feed.stages) {
+      // seed feed from the setup wizard ({"status":"awaiting first robot run"}) — wiring is good,
+      // the robot just hasn't pushed real data yet. Show a friendly empty state, not an error.
+      if (st) st.textContent = '🟡 ' + (feed.status || 'awaiting first robot run');
+      document.getElementById('truePipeline').innerHTML =
+        '<div style="color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;font-size:13px">' +
+        '<b>Awaiting first robot run.</b> The Drive wiring works — this board fills in after your ' +
+        'daily Routine runs for the first time (or run the chain once by hand to see it today).</div>';
+      return;
+    }
+    DATA = feed.data; STAGES = feed.stages; PANEL = feed.panel;
+    if (!HAS_PREP_CENTER) {
+      // drop the prep lanes and relabel the survivors in plain from-home language
+      STAGES = STAGES.filter(function(s){ return !PREP_SKIP_NA.has(s[0]); })
+                     .map(function(s){ return [s[0], NOPREP_LABEL[s[0]] || s[1], s[2]]; });
+    }
+    renderAll();
+    if (st) st.textContent = '🟢 live · ' + (feed.generated_at || DATA.asOf || '');
+  } catch (e) {
+    if (st) st.textContent = '✗ live load failed';
+    document.getElementById('truePipeline').innerHTML =
+      '<div style="color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;font-size:13px;white-space:pre-wrap">Live load failed:\n' +
+      String((e && e.message) || e) +
+      '\n\nThis board reads its data live from Google Drive via the Cowork connector. If you opened it outside Cowork, that connector isn\'t available.</div>';
+  }
+}
+
+document.getElementById('filterText').addEventListener('input', function(){ if (DATA) renderTable(); });
+document.getElementById('filterPrep').addEventListener('change', function(){ if (DATA) renderTable(); });
+document.getElementById('sortBy').addEventListener('change', function(){ if (DATA) renderTable(); });
+document.getElementById('reloadBtn').addEventListener('click', load);
+load();
+</script>
+</body>
+</html>
