@@ -39,22 +39,23 @@ description: Cowork finale for a NEW user who has already run SETUP.md in Claude
    were created under (must match the email used in SETUP.md Checkpoint 7). Fix that and re-test.
    Do not proceed.
 
-## Step B — Instantiate the two live tiles (the headline deliverable)
+## Step B — Instantiate the three live tiles (the headline deliverable)
 
 > **Shortcut (preferred, and REQUIRED when the installed plugin is cache-stale):** don't fill the
 > tokens by hand. In **Claude Code**, run `scripts/render_tiles.py` — it reads the user's robot
-> config + plugin `_shared/config.json` and writes `lifecycle-stages.filled.html` +
-> `fba-cash-flow-equilibrium.filled.html` with every token filled deterministically (including the
-> bank-feed coupling table and the exact feed ids — no hand-copied ids, no wrong boolean pairs). It
-> leaves only `{{DRIVE_READ_TOOL}}` for you. Then Cowork's whole job is: attach those two files,
+> config + plugin `_shared/config.json` and writes `lifecycle-stages.filled.html`,
+> `fba-cash-flow-equilibrium.filled.html` + `fba-pnl-control.filled.html` with every token filled
+> deterministically (including the bank-feed coupling table and the exact feed ids — no hand-copied
+> ids, no wrong boolean pairs). It leaves only `{{DRIVE_READ_TOOL}}` for you. Then Cowork's whole job is: attach those three files,
 > replace `{{DRIVE_READ_TOOL}}` with your connector tool name, and `create_artifact` each — do NOT
 > re-read the plugin template (it may be the stale cached copy). This exists because hand-filling
 > went wrong twice on one call (2026-07-13): an invalid bank pair and a 1-vs-l feed-id typo.
 
 If you are filling by hand anyway (fresh install, plugin not stale), read
-`../refresh-artifacts/templates/lifecycle-stages.template.html` and
-`fba-cash-flow-equilibrium.template.html`, replace the tokens, then `create_artifact` each:
-- `{{LIFECYCLE_FEED_FILE_ID}}` / `{{CASH_FLOW_FEED_FILE_ID}}` → the two feed ids from the handoff block.
+`../refresh-artifacts/templates/lifecycle-stages.template.html`,
+`fba-cash-flow-equilibrium.template.html` and `fba-pnl-control.template.html`, replace the tokens, then `create_artifact` each:
+- `{{LIFECYCLE_FEED_FILE_ID}}` / `{{CASH_FLOW_FEED_FILE_ID}}` / `{{PNL_FEED_FILE_ID}}` → the three feed ids from the handoff block.
+- The P&L tile (`fba-pnl-control`) uses only `{{PNL_FEED_FILE_ID}}` + `{{DRIVE_READ_TOOL}}` — its profit-vs-locked state is driven by the feed data, so it needs no `HAS_*` booleans.
 - `{{DRIVE_READ_TOOL}}` → the exact tool name that PASSED Step A. Nothing else.
 - `{{ITEM_JOURNEY_SHEET_ID}}` → their Item Journey sheet id (handoff block).
 - `{{HAS_PREP_CENTER}}` (lifecycle tile only) → bare JS boolean from the handoff block. When
@@ -102,7 +103,7 @@ values (blind-paste, never in chat).
 5. **Run it once by hand.** Confirm it wrote the **AMZ Inventory / AMZ Inbound / AMZ Settlements**
    tabs (and the Item Journey columns), ending with the **🏁** banner. Un-wired adapters read
    `SKIPPED — TRUE_BLOCK:ADAPTER_NONE`, never a red FAIL.
-6. **Refresh both tiles** — they now show the user's real numbers. That's the finish line.
+6. **Refresh all three tiles** — they now show the user's real numbers. That's the finish line.
 7. **If the handoff shows Migration PENDING** (`answers.json: past_records` ≠ `none`): tell them their
    next stop is **Claude Code with MIGRATE.md** — their Claude runs the import; they only answer a few
    business questions and approve the preview. (You're the announcer here; the doer is Claude Code.)
@@ -128,8 +129,8 @@ Code, not here**. Cowork can't reach `api.amazon.com`, so `verify.py amazon` can
 Cowork sandbox; that's expected, not a bug. The legs map to the course lessons:
 `amazon` (SP-API live), `google` (reads the Ops Sheet), `routine` (the daily Routine ran — Ops Sheet
 fresh within 36h), `bank` (Monarch, optional), `keys` (`.env` well-formed, no network), and `all`
-(everything + the Cowork eyeball reminder that the two tiles load). The `cowork` leg is a manual
-checklist — plugin installed, Drive connected, both tiles render — the one thing a script can't prove.
+(everything + the Cowork eyeball reminder that the three tiles load). The `cowork` leg is a manual
+checklist — plugin installed, Drive connected, all three tiles render — the one thing a script can't prove.
 
 ## Scripts (all live here; SETUP.md in the robot repo drives most of them in Claude Code)
 - `scripts/verify.py` — end-of-lesson capstone: `verify.py amazon|google|routine|cowork|bank|keys|all`.

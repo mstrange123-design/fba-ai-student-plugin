@@ -9,7 +9,7 @@ The 5 lessons / legs:
   amazon   — Lesson 1: do my Amazon SP-API credentials actually reach Amazon? (live call)
   google   — Lesson 2 pre-req: can my Google token read my FBA Ops Sheet? (live call)
   routine  — Lesson 3: did my daily cloud Routine actually run? (sheet freshness)
-  cowork   — Lesson 4: are my two dashboards showing in Cowork? (manual eyeball)
+  cowork   — Lesson 4: are my three dashboards showing in Cowork? (manual eyeball)
   bank     — Lesson 5 (optional): does my Monarch token authenticate? (live call)
   keys     — bonus: is my .env filled in right? (no network — locate + presence + format)
   all      — run every automatable check and print one capstone banner
@@ -116,8 +116,8 @@ def cowork_note():
     print("   I can't check this one from the command line — open Cowork and confirm:")
     print("     1. Your FBA plugin is installed (you can see its skills).")
     print("     2. Your Google Drive is connected in Cowork.")
-    print("     3. Both dashboard tiles load: the Item Journey and the Cash Cycle.")
-    print("   All three there → Lesson 4 is done. 👀")
+    print("     3. All three dashboard tiles load: the Item Journey, the Cash Cycle, and the P&L Control Center.")
+    print("   All of that there → Lesson 4 is done. 👀")
 
 
 def run_leg(leg, path, values):

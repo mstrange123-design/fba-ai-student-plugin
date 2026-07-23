@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """create_feed_files.py — create the user's live-dashboard feed files on THEIR Drive.
 
-The two live tiles (Lifecycle Stages, Cash Flow Equilibrium) each read a small JSON feed file
-from Google Drive. The daily robot only UPDATES an existing file — it never creates one. This
-script is the missing first domino: run it ONCE during setup (after the Google token exists) and it:
+The three live tiles (Lifecycle Stages, Cash Flow Equilibrium, P&L Control Center) each read a
+small JSON feed file from Google Drive. The daily robot only UPDATES an existing file — it never
+creates one. This script is the missing first domino: run it ONCE during setup (after the Google
+token exists) and it:
 
-  1. creates the two feed files on the user's Drive (idempotent — if a feed file
+  1. creates the three feed files on the user's Drive (idempotent — if a feed file
      with the same name already exists in this app's Drive namespace, it is reused),
   2. writes each file's id into the plugin config (`_shared/config.json` →
      live_artifact_feeds.feeds.<key>.drive_file_id),
@@ -38,6 +39,7 @@ DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"
 FEEDS = [
     ("lifecycle-stages", "lifecycle-feed.json", "lifecycle_feed"),
     ("fba-cash-flow-equilibrium", "cash-flow-feed.json", "cash-flow_feed"),
+    ("fba-pnl-control", "pnl-feed.json", "pnl_feed"),
 ]
 
 SEED = {"status": "awaiting first robot run", "$created_by": "setup-wizard create_feed_files.py"}

@@ -197,6 +197,8 @@ def main():
                          or dig(plugin, "live_artifact_feeds", "feeds", "lifecycle-stages", "drive_file_id"))
     cash_flow_feed_id = (dig(robot, "cash-flow_feed", "drive_file_id")
                          or dig(plugin, "live_artifact_feeds", "feeds", "fba-cash-flow-equilibrium", "drive_file_id"))
+    pnl_feed_id = (dig(robot, "pnl_feed", "drive_file_id")
+                   or dig(plugin, "live_artifact_feeds", "feeds", "fba-pnl-control", "drive_file_id"))
 
     has_prep = dig(robot, "prep_centers", "has_prep_center")
     if has_prep is None:
@@ -220,6 +222,7 @@ def main():
     check_id("ITEM_JOURNEY_SHEET_ID", item_journey_sheet_id)
     check_id("LIFECYCLE_FEED_FILE_ID", lifecycle_feed_id)
     check_id("CASH_FLOW_FEED_FILE_ID", cash_flow_feed_id)
+    check_id("PNL_FEED_FILE_ID", pnl_feed_id)
 
     def jsbool(b):
         return "true" if b else "false"
@@ -230,6 +233,7 @@ def main():
         "ITEM_JOURNEY_SHEET_ID": item_journey_sheet_id,
         "LIFECYCLE_FEED_FILE_ID": lifecycle_feed_id,
         "CASH_FLOW_FEED_FILE_ID": cash_flow_feed_id,
+        "PNL_FEED_FILE_ID": pnl_feed_id,
         "HAS_PREP_CENTER": jsbool(has_prep),
         "HAS_SELLERBOARD": jsbool(has_sellerboard),
         "HAS_BANK_FEED": jsbool(has_bank),
@@ -242,6 +246,7 @@ def main():
         "ITEM_JOURNEY_SHEET_ID": "robot item_journey.sheet_id",
         "LIFECYCLE_FEED_FILE_ID": "robot lifecycle_feed.drive_file_id",
         "CASH_FLOW_FEED_FILE_ID": "robot cash-flow_feed.drive_file_id",
+        "PNL_FEED_FILE_ID": "robot pnl_feed.drive_file_id",
         "HAS_PREP_CENTER": "robot prep_centers.has_prep_center",
         "HAS_SELLERBOARD": f"plugin adapters.cogs_tool.provider={cogs_provider!r}",
         "HAS_BANK_FEED": f"coupling(finance={finance_provider!r}, fill_est={fill_est!r})",
@@ -260,6 +265,7 @@ def main():
     jobs = [
         ("lifecycle-stages.template.html", "lifecycle-stages.filled.html"),
         ("fba-cash-flow-equilibrium.template.html", "fba-cash-flow-equilibrium.filled.html"),
+        ("fba-pnl-control.template.html", "fba-pnl-control.filled.html"),
     ]
     os.makedirs(args.out, exist_ok=True)
     wrote = []

@@ -36,10 +36,10 @@ robot run" once the daily Routine has run once.
 |-----|-----------|
 | `cogs.pre_bought_asins` | ASINs that already had cost history in SellerBoard **before** you started using this kit. If you have none, leave this `[]`. |
 
-## 5. Your two live tiles — `live_artifact_feeds`
+## 5. Your three live tiles — `live_artifact_feeds`
 | Key | What it is |
 |-----|-----------|
-| `live_artifact_feeds.feeds.*.drive_file_id` | The Google Drive file ID for each of your 2 live-tile feeds (lifecycle-stages, fba-cash-flow-equilibrium). The wizard's `create_feed_files.py` (Step 7b) creates these on your own Drive and fills them in — you shouldn't need to touch this by hand. |
+| `live_artifact_feeds.feeds.*.drive_file_id` | The Google Drive file ID for each of your 3 live-tile feeds (lifecycle-stages, fba-cash-flow-equilibrium, fba-pnl-control). The wizard's `create_feed_files.py` (Step 7b) creates these on your own Drive and fills them in — you shouldn't need to touch this by hand. |
 
 ---
 
@@ -95,15 +95,18 @@ python -X utf8 fill_item_journey.py --write
 python -X utf8 fill_k.py --write
 python -X utf8 push_lifecycle_feed.py
 python -X utf8 push_cash_flow_feed.py --write
+python -X utf8 push_pnl_feed.py --write
 ```
 
 `sync_bought_to_journey.py --auto` seeds one per-unit Item Journey row from each Bought box (the
-board needs that roster before the funnel can fill). The two `push_*` steps differ:
+board needs that roster before the funnel can fill). The three `push_*` steps differ:
 `push_lifecycle_feed.py` takes **no flag** (and **refuses to publish an empty funnel over a feed
 that already has real units** — it exits non-zero and leaves the good feed intact, a backstop
-against the missing-`--write` mistake above). `push_cash_flow_feed.py` **DOES need `--write`** —
-without it, it dry-runs and the **cash-flow tile silently never updates** (this exact omission left
-a real user's cash tile frozen at zero). Keep the flag.
+against the missing-`--write` mistake above). `push_cash_flow_feed.py` and `push_pnl_feed.py`
+**DO need `--write`** — without it they dry-run and the **cash-flow / P&L tiles silently never
+update** (this exact omission left a real user's cash tile frozen at zero). Keep the flags.
+`push_pnl_feed.py` runs LAST and makes its own SP-API All-Orders pull (~6-10 min in the cloud); if
+it ever fails it only skips its own feed — the other two tiles are already written by then.
 
 The adapter pulls (`pull_monarch_deposits`, `track_card_rewards`, `pull_topcashback`,
 `pull_prepportalb`) self-skip with a `status=NOT-CONNECTED` line when their credential isn't in
