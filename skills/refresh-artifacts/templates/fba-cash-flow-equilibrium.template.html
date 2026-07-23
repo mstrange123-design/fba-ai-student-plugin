@@ -310,6 +310,46 @@
        border:1px solid var(--red-line);border-radius:999px;padding:4px 11px}
   .err{color:var(--red-deep);background:var(--red-wash);border:1px solid var(--red-line);border-radius:8px;padding:12px;font-size:13px;white-space:pre-wrap}
 </style>
+<style>
+/* Clean-gray unification (2026-07-23): drop the warm-ledger paper look and match the Lifecycle
+   Stages board — system fonts, gray/white surfaces, green as the single money accent. Purely a
+   re-map of the design tokens plus the few hard-coded warm gradients; no DOM/JS/token changes.
+   Delete this block to restore the warm-ledger look. */
+  :root{
+    --bg:#f9fafb; --paper:#ffffff; --paper-2:#f9fafb; --paper-3:#f3f4f6;
+    --ink:#1f2937; --soft:#6b7280; --faint:#9ca3af; --gray:#9ca3af;
+    --line:#e5e7eb; --line-2:#f3f4f6; --line-3:#d1d5db;
+    /* accent = money = green (was orange) */
+    --orange:#16a34a; --orange-deep:#065f46; --orange-soft:#4ade80; --orange-wash:#f0fdf4; --orange-line:#bbf7d0;
+    --green:#16a34a; --green-deep:#065f46; --green-wash:#f0fdf4; --green-line:#bbf7d0;
+    --yellow:#d97706; --yellow-deep:#92400e; --yellow-wash:#fffbeb; --yellow-line:#fde68a;
+    --red:#dc2626; --red-deep:#b91c1c; --red-wash:#fef2f2; --red-line:#fecaca;
+    --goal:#16a34a; --goal-deep:#065f46; --goal-wash:#f0fdf4; --goal-line:#bbf7d0;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --emboss:0 1px 3px rgba(20,24,40,.06);
+  }
+  body{background:var(--bg) !important;background-image:none !important}
+  h1{font-weight:700 !important;font-size:30px !important;letter-spacing:-.01em}
+  .view h2{font-weight:700 !important}
+  /* dark north-star cards were a warm-brown gradient — make them clean slate */
+  .kpi:first-child{background:linear-gradient(165deg,#374151 0%,#1f2937 75%) !important;border-color:#1f2937 !important}
+  .node.root{background:linear-gradient(165deg,#374151,#1f2937) !important;border-color:#1f2937 !important;font-family:var(--sans) !important;font-weight:700 !important}
+  /* per-SKU payback table (2026-07-23) */
+  .sktbl{overflow-x:auto;margin-top:8px}
+  table.sk{width:100%;border-collapse:collapse;font-size:12.5px;min-width:520px}
+  table.sk th{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-align:right;font-weight:600;padding:0 10px 7px 0;border-bottom:1px solid var(--line-3)}
+  table.sk th.l{text-align:left}
+  table.sk td{padding:7px 10px 7px 0;border-bottom:1px solid var(--line-2);text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
+  table.sk td.l{text-align:left}
+  table.sk td.nm{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  table.sk tr:hover td{background:var(--paper-2)}
+  table.sk tr.free td{background:var(--red-wash)}
+  table.sk td.fz{color:var(--red-deep);font-weight:600}
+  .freetag{font-family:var(--mono);font-size:9px;color:var(--red-deep);border:1px solid var(--red-line);background:#fff;border-radius:999px;padding:1px 7px;margin-left:6px;white-space:nowrap}
+  .tb{font-size:11px;font-weight:600;white-space:nowrap}
+  .tb.up{color:var(--green-deep)} .tb.dn{color:var(--red-deep)} .tb.fl{color:var(--soft)} .tb.mut{color:var(--faint)}
+</style>
 </head><body>
 <header>
   <div class="eyebrow">Cash Flow Cycle</div>
@@ -395,10 +435,38 @@ function render(f){
     + `<div class="fbox"><h3 style="margin-top:0">Fastest cash back</h3>${rowsHtml(f.fastest,"ok")}</div>`
     + `<div class="fbox"><h3 style="margin-top:0">Slowest &mdash; capital tied up</h3>${rowsHtml(f.slowest,"over")}</div>`
     + `</div>`;
-  const chips = (f.frozen_top||[]).map(c=>`<span class="chip">${esc(c.name)} &middot; ${esc(c.units)}u</span>`).join("");
-  h += `<h3>Frozen capital</h3><div class="note">${esc(f.frozen_units)} units across ${esc(f.frozen_products)} SKUs bought but not yet sold.<div class="chips">${chips}</div></div>`;
+  h += `<h3>Frozen capital</h3><div class="note"><b>${esc(f.frozen_units)} units</b> across ${esc(f.frozen_products)} SKUs are past your ${FD}-day float &mdash; capital bought but not yet back in the bank.`;
+  if(!(f.sku_table&&f.sku_table.length)){
+    const chips = (f.frozen_top||[]).map(c=>`<span class="chip">${esc(c.name)} &middot; ${esc(c.units)}u</span>`).join("");
+    h += `<div class="chips">${chips}</div>`;
+  }
+  h += `</div>`;
+  h += skuTableHtml(f.sku_table);
   h += `</div>`;
   document.getElementById("out").innerHTML = h;
+}
+
+function cfTrend(t){
+  if(t==="faster") return '<span class="tb up" title="paying back faster than this SKU&rsquo;s average">&#9660; faster</span>';
+  if(t==="slower") return '<span class="tb dn" title="paying back slower than this SKU&rsquo;s average">&#9650; slower</span>';
+  if(t==="steady") return '<span class="tb fl">steady</span>';
+  return '<span class="tb mut" title="not enough completed cycles to call a trend">&mdash;</span>';
+}
+function skuTableHtml(st){
+  if(!st||!st.length) return "";
+  let h = `<h3>Every SKU &mdash; payback &amp; what to free up</h3>`
+   + `<div class="note" style="margin-top:0">SKUs with capital tied up that are <b>slowing down</b> (paying back slower than their own average) are flagged <b>sell to free cash</b>. The red Frozen number shows capital not yet back. Trend = this SKU&rsquo;s most recent cycles vs its own average.</div>`
+   + `<div class="sktbl"><table class="sk"><thead><tr><th class="l">Product</th><th>Avg buy&rarr;bank</th><th>Recent</th><th>Trend</th><th>Cycles</th><th>Frozen</th></tr></thead><tbody>`;
+  for(const r of st){
+    const flag = (r.frozen_units>0 && r.trend==="slower");
+    h += `<tr${flag?' class="free"':''}><td class="l nm" title="${esc(r.name)}">${esc(r.name)}${flag?' <span class="freetag">sell to free cash</span>':''}</td>`
+      + `<td>${r.avg_days==null?"&mdash;":esc(r.avg_days)+"d"}</td>`
+      + `<td>${r.recent_days==null?"&mdash;":esc(r.recent_days)+"d"}</td>`
+      + `<td class="l">${cfTrend(r.trend)}</td>`
+      + `<td>${esc(r.cycles)}</td>`
+      + `<td${r.frozen_units>0?' class="fz"':''}>${r.frozen_units?esc(r.frozen_units):"&mdash;"}</td></tr>`;
+  }
+  return h + `</tbody></table></div>`;
 }
 
 async function load(){

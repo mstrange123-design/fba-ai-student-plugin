@@ -103,60 +103,36 @@ h1 { font-size: 18px; margin: 0 0 4px 0; }
 .tbl tbody tr { transition: background .12s }
 .tbl tbody tr:hover { background: #f7f8f6 }
 </style>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Warm-ledger unification (additive 2026-07-22): restyle to match the Cash Flow + P&L tiles.
-   Purely visual — no DOM, JS, or token changes; delete this block to revert to the gray look.
-   Stage border-left colors and .bar-seg backgrounds are set inline by the engine (the stage
-   palette), so they are deliberately NOT overridden here — the funnel keeps its data colors. */
-:root{
-  --bg:#ece4d4; --paper:#faf6ed; --paper-2:#f4eee0; --paper-3:#eee5d4;
-  --ink:#241a12; --soft:#5f554a; --faint:#948a7a;
-  --line:#dcd3bf; --line-2:#e6dfcd; --line-3:#cabea6;
-  --orange:#c65d2e; --orange-deep:#9c441c; --orange-wash:#f8e6d6; --orange-line:#e8c6a6;
-  --green-deep:#27593a; --green-wash:#e6efe2; --green-line:#bcd2bc;
-  --yellow-deep:#6a5212; --yellow-wash:#f3ebd2; --yellow-line:#ddcda0;
-  --red:#a4493a; --red-deep:#7e3729; --red-wash:#f1e2db; --red-line:#dabdaf;
-  --sans:"Hanken Grotesk",-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-  --serif:"Instrument Serif",Georgia,serif;
-  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
-}
-body{background:var(--bg) !important;background-image:radial-gradient(115% 70% at 50% -8%, #f3ecdd 0%, var(--bg) 58%);
-     font-family:var(--sans) !important;color:var(--ink) !important;padding:22px !important}
-h1{font-family:var(--serif) !important;font-weight:400 !important;font-size:34px !important;letter-spacing:-.01em;color:var(--ink)}
-.sub{color:var(--soft)} .sub a{color:var(--orange-deep)}
-.section-h{color:var(--soft)} .section-h .hint{color:var(--faint)}
-#reloadBtn{font-family:var(--sans) !important;border:1px solid var(--line-3) !important;background:var(--paper) !important;color:var(--soft) !important;border-radius:6px !important}
-#liveStatus{color:var(--faint) !important}
-.stage{background:var(--paper);border-top-color:var(--line-3);border-right-color:var(--line-3);border-bottom-color:var(--line-3);
-       box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 1px 2px rgba(36,26,18,.06)}
-.stage .lbl{color:var(--faint)} .stage .val{color:var(--ink)} .stage .pct{color:var(--faint)}
-.stage .stuck{color:var(--red-deep)} .stage .stuck.zero{color:var(--faint)}
-.bar{background:var(--paper-3)}
-.stuck-card{background:var(--red-wash);border-color:var(--red-line)}
-.stuck-card .num{color:var(--red-deep)} .stuck-card .lbl{color:var(--soft)} .stuck-card .thresh{color:var(--faint)}
-.stuck-card.zero{background:var(--paper-2);border-color:var(--line)} .stuck-card.zero .num{color:var(--faint)}
-.stuck-card.active{background:var(--ink);border-color:var(--ink)}
-.active-filter-bar{background:var(--ink)} .active-filter-bar button{background:var(--paper);color:var(--ink)}
-.gap-card{background:var(--yellow-wash);border-color:var(--yellow-line)} .gap-card .num{color:var(--yellow-deep)} .gap-card .lbl{color:var(--soft)}
-.gap-card.zero{background:var(--green-wash);border-color:var(--green-line)} .gap-card.zero .num{color:var(--green-deep)}
-.bought-breakdown{color:var(--soft)} .bought-breakdown b{color:var(--ink)}
-.filters{background:var(--paper);border-color:var(--line-3)} .filters label{color:var(--faint)}
-.filters input,.filters select{border-color:var(--line-3);background:var(--paper-2);color:var(--ink)}
-.tbl{background:var(--paper);border-color:var(--line-3)}
-.tbl th{background:var(--paper-2);color:var(--soft);border-bottom-color:var(--line-3)}
-.tbl td{border-bottom-color:var(--line-2)}
-.tbl tr:hover td{background:var(--paper-2)} .tbl tbody tr:hover{background:var(--paper-2)}
-.tbl tr.canceled-row td{background:var(--red-wash)}
-.pill.PREPB{background:#e8ded0;color:var(--orange-deep)} .pill.PREPA{background:var(--green-wash);color:var(--green-deep)}
-.pill.NA{background:var(--paper-3);color:var(--soft)} .pill.Canceled{background:var(--ink);color:var(--paper)}
-.window-pill{background:var(--paper);border-color:var(--line-3);color:var(--soft)}
-.window-pill:hover{border-color:var(--orange-line);color:var(--ink)}
-.window-pill.active{background:var(--ink);border-color:var(--ink);color:var(--paper)}
-.window-toggle .wlbl,.window-note{color:var(--soft)}
-.legend{color:var(--faint)}
+/* Embossed numbered-stepper funnel (ported from the coach lifecycle board 2026-07-23) — replaces
+   the flat stage cards + bar. --c is injected per-tank (warm->teal ramp via ramp()). */
+:root{ --warm:#f1a04a; --accent:#0e7a5f; --hair:#e5e7eb; --alertFg:#c4583a; --amberFg:#a9772a;
+       --liftShadow:0 10px 26px rgba(20,24,40,.12); }
+.funnel{display:flex;align-items:center;gap:0;min-width:980px}
+.tank{flex:1;min-width:118px;height:210px;position:relative;border-radius:14px;background:#fff;border:1px solid var(--hair);
+      overflow:hidden;text-align:left;color:inherit;padding:0;transition:transform .15s,box-shadow .15s,border-color .15s}
+.tank.clk{cursor:pointer}
+.tank:hover{transform:translateY(-3px);box-shadow:var(--liftShadow)}
+.tank[data-active="1"]{box-shadow:0 0 0 2px color-mix(in oklab,var(--c) 40%,#fff);border-color:var(--c)}
+.tank.hasAlert{border-color:color-mix(in oklab,var(--alertFg) 32%,var(--hair))}
+.tank .fill{position:absolute;left:0;right:0;bottom:0;background:color-mix(in oklab,var(--c) 18%,#fff);border-top:2px solid var(--c)}
+.tbody{position:absolute;inset:0;padding:14px 13px;display:flex;flex-direction:column}
+.thead{display:flex;align-items:flex-start;gap:7px}
+.tnum{width:20px;height:20px;border-radius:6px;background:var(--c);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;flex:0 0 auto}
+.tname{font-size:12px;font-weight:700;line-height:1.2;color:#1f2937;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tunits{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1;display:block;margin-top:12px;color:#111827}
+.tu2{font-size:11px;color:#9ca3af;font-weight:600;margin-top:2px;display:block}
+.tfoot{margin-top:auto}
+.tsub{font-size:11px;color:#6b7280;font-weight:600;display:block}
+.twarn{font-size:10.5px;font-weight:700;color:var(--amberFg);display:block;margin-top:3px}
+.tok{font-size:11px;font-weight:700;color:#16a34a;display:block;margin-top:3px}
+.tmut{font-size:11px;color:#9ca3af;font-weight:600;display:block;margin-top:3px}
+.tbadge{position:absolute;top:9px;right:9px;display:inline-flex;align-items:center;gap:5px;background:var(--alertFg);color:#fff;
+        font-size:12px;font-weight:800;padding:3px 8px;border-radius:999px;box-shadow:0 0 0 3px color-mix(in oklab,var(--alertFg) 16%,#fff);z-index:2;cursor:help}
+.tbadge .bp{width:6px;height:6px;border-radius:4px;background:#fff;animation:bpulse2 1.6s ease-in-out infinite}
+.conn{flex:0 0 20px;display:flex;align-items:center;justify-content:center;height:210px}
+@keyframes bpulse2{0%,100%{opacity:1}50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.tbadge .bp{animation:none}}
 </style>
 </head>
 <body>
@@ -177,7 +153,6 @@ h1{font-family:var(--serif) !important;font-weight:400 !important;font-size:34px
 <div class="window-toggle" id="windowToggle"></div>
 <div class="window-note" id="windowNote"></div>
 <div class="funnel-scroll"><div class="funnel" id="funnel"></div></div>
-<div class="bar-scroll"><div class="bar" id="funnelBar"></div></div>
 
 <div class="section-h">Stuck — units that haven't progressed past this stage <span class="hint">(per-stage thresholds; click any card to filter batches below)</span></div>
 <div class="stuck-row" id="stuck"></div>
@@ -414,54 +389,57 @@ function renderWindowNote() {
 // [window-toggle] END
 // ------------------------------------------------------------------------------------------------
 
+// per-stage accent ramp: warm-orange (early) -> teal (banked), matching the coach board.
+function ramp(i, n){ const p = Math.round((1 - i/Math.max(1, n-1))*100);
+  return 'color-mix(in oklab, var(--warm) '+p+'%, var(--accent))'; }
+
 function renderFunnel() {
-  // Soft reads: a missing feed field renders as zeros/blanks, never a dead board.
-  // TIME WINDOW (additive 2026-07-11): a selected window swaps the stage counts to the feed's
-  // pre-computed data.windows[d].reached; All (or an absent/malformed windows block) keeps the
-  // existing full-history path unchanged.
+  // Embossed numbered-stepper (ported from the coach board). Soft reads: a missing field renders
+  // as zero, never a dead board. Window view swaps to the feed's pre-computed window counts and
+  // states window-honest sublines (all-history % / stuck would be wrong against windowed counts).
   const winEntry = activeWindowEntry();
   const f = windowFunnelSource(), s = DATA.stuckByStage || {}, appl = DATA.applicableCount || {};
-  document.getElementById('funnel').innerHTML = STAGES.map(function(arr) {
-    const k=arr[0], label=arr[1], color=arr[2];
+  const trust = DATA.stageTrust || {};
+  const n = STAGES.length;
+  const maxUnits = Math.max(1, ...STAGES.map(function(a){ return f[a[0]] || 0; }));
+  const bought = f[STAGES[0][0]] || 0;
+  document.getElementById('funnel').innerHTML = STAGES.map(function(arr, i) {
+    const k = arr[0], label = arr[1];
+    const c = ramp(i, n);
     const v = f[k] || 0;
     const apply = appl[k] || 0;
-    const pct = apply ? Math.round(v / apply * 100) : 0;
+    const fillH = Math.max(6, (v / maxUnits) * 100);
+    const untrusted = (trust[k] === false) || (k === 'H' && DATA.hTrusted === false);
     const stuck = s[k] || 0;
-    const trust = DATA.stageTrust || {};
-    const untrusted = (trust[k] === false) || (k === 'H' && DATA.hTrusted === false);
-    const um = untrustedMsg(k);
-    // Window view: % applicable + stuck are ALL-HISTORY numbers — pairing them with windowed
-    // counts would state wrong facts, so a window shows window-honest lines instead.
-    const pctHtml = winEntry
-      ? '<div class="pct">'+(f.Bought ? Math.round(v / f.Bought * 100) : 0)+'% of '+(f.Bought||0).toLocaleString()+' bought in window</div>'
-      : '<div class="pct">'+pct+'% of '+apply.toLocaleString()+' applicable</div>';
-    const stuckHtml = winEntry
-      ? '<div class="stuck zero" title="Stuck counts cover all history — switch the window to All to see them.">window view</div>'
-      : untrusted
-      ? '<div class="stuck" style="color:#f59e0b" title="'+um.title+'">'+um.word+'</div>'
-      : (k !== 'K')
-      ? ('<div class="stuck ' + (stuck===0?'zero':'') + '">' + (stuck===0?'no stuck':stuck.toLocaleString()+' stuck') + '</div>')
-      : (BANK_FEED_IS_ESTIMATE
-          ? '<div class="pct" style="color:#c65d2e" title="In-bank dates are estimated (Amazon transfer + 1 business day). Connect a bank feed to confirm the exact day.">complete · est</div>'
-          : '<div class="pct" style="color:#16a34a">complete</div>');
-    return '<div class="stage" style="border-left-color:'+color+'">' +
-      '<div class="lbl">'+label+'</div>' +
-      '<div class="val" style="color:'+color+'">'+v.toLocaleString()+'</div>' +
-      pctHtml +
-      stuckHtml +
-    '</div>';
-  }).join('');
-  const total = f.Bought;
-  document.getElementById('funnelBar').innerHTML = STAGES.map(function(arr) {
-    const k=arr[0], label=arr[1], color=arr[2];
-    const v = f[k] || 0;
-    if (v === 0) return '';
-    const w = (v / total) * 100;
-    const trust = DATA.stageTrust || {};
-    const untrusted = (trust[k] === false) || (k === 'H' && DATA.hTrusted === false);
-    const op = untrusted ? ';opacity:0.45' : '';
-    const note = untrusted ? (k === 'D' ? ' — under-logged (advisory)' : k === 'E' ? ' — received at prep (advisory)' : k === 'F' ? ' — in transit to Amazon (advisory)' : k === 'J' ? (HAS_BANK_FEED ? ' — awaiting bank feed (advisory)' : ' — Amazon-confirmed, no bank tie-in (advisory)') : ' — CORRUPTED, rebuilding from Amazon') : '';
-    return '<div class="bar-seg" style="background:'+color+'; flex: '+v+op+'" title="'+label+': '+v+' ('+Math.round(w)+'%)'+note+'">'+(w>8?v.toLocaleString():'')+'</div>';
+    const clickable = (!winEntry && !untrusted && k !== 'K' && stuck > 0);
+    const active = (stuckFilter === k);
+    const pctTxt = winEntry
+      ? ((bought ? Math.round(v / bought * 100) : 0) + '% of ' + bought.toLocaleString() + ' in window')
+      : ((apply ? Math.round(v / apply * 100) : 0) + '% of ' + apply.toLocaleString());
+    let note;
+    if (untrusted) { const um = untrustedMsg(k); note = '<span class="twarn" title="' + um.title + '">&#9888; ' + um.word + '</span>'; }
+    else if (winEntry) note = '<span class="tmut">window view</span>';
+    else if (k === 'K') note = BANK_FEED_IS_ESTIMATE
+      ? '<span class="tmut" title="In-bank dates are estimated (Amazon transfer + 1 business day).">complete &middot; est</span>'
+      : '<span class="tok">complete</span>';
+    else note = stuck > 0 ? '' : '<span class="tmut">no stuck</span>';
+    const badge = clickable
+      ? '<span class="tbadge" title="' + stuck.toLocaleString() + ' stuck here &mdash; click to filter"><span class="bp"></span>' + stuck.toLocaleString() + '</span>'
+      : '';
+    return '<button type="button" class="tank' + (clickable ? ' clk hasAlert' : '') + '"' +
+      (active ? ' data-active="1"' : '') + ' style="--c:' + c + '"' +
+      (clickable ? ' onclick="onStuckClick(\x27' + k + '\x27, ' + stuck + ')"' : '') + '>' +
+      '<span class="fill" style="height:' + fillH + '%"></span>' +
+      badge +
+      '<span class="tbody">' +
+        '<span class="thead"><span class="tnum">' + (i + 1) + '</span><span class="tname">' + label + '</span></span>' +
+        '<span><span class="tunits">' + v.toLocaleString() + '</span><span class="tu2">units reached</span></span>' +
+        '<span class="tfoot"><span class="tsub">' + pctTxt + '</span>' + note + '</span>' +
+      '</span>' +
+    '</button>' +
+    (i < n - 1 ? '<span class="conn"><svg width="22" height="22" viewBox="0 0 26 26" fill="none">' +
+      '<path d="M1 13 H20" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<path d="M17 8l5 5-5 5" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>' : '');
   }).join('');
 }
 
