@@ -1,0 +1,490 @@
+<!-- PUBLISHED (claude.ai Artifact) version of the P&L Control Center tile.
+     Reads the viewer's OWN Google Drive via window.claude.mcp — ONE published link, no Cowork paste.
+     Publish with the Artifact tool: fill {{PNL_FEED_FILE_ID}} with the target student's pnl-feed.json
+     Drive id, then publish with capabilities:{mcp:{servers:[{server:"Google Drive",tools:["download_file_content"]}]}}.
+     NO doctype/head/body/title here — the Artifact tool wraps the file; pass the title via the tool param.
+     The Cowork version (fba-pnl-control.template.html, window.cowork.callMcpTool) stays for students not yet migrated. -->
+<style>
+  /* Clean light theme — matches the Lifecycle Stages board (system fonts, gray/white, green=money). */
+  :root{
+    --bg:#f9fafb; --paper:#ffffff; --paper-2:#f9fafb; --paper-3:#f3f4f6;
+    --ink:#1f2937; --soft:#6b7280; --faint:#9ca3af;
+    --line:#e5e7eb; --line-2:#f3f4f6; --line-3:#d1d5db;
+    --green:#16a34a; --green-deep:#065f46; --green-wash:#f0fdf4; --green-line:#bbf7d0;
+    --red:#dc2626; --red-deep:#b91c1c; --red-wash:#fef2f2; --red-line:#fecaca;
+    --yellow:#d97706; --yellow-deep:#92400e; --yellow-wash:#fffbeb; --yellow-line:#fde68a;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --maxw:1140px; --pad:20px;
+    --card:0 1px 3px rgba(20,24,40,.06); --lift:0 10px 26px rgba(20,24,40,.12);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--sans);color:var(--ink);background:var(--bg);
+       line-height:1.5;-webkit-font-smoothing:antialiased}
+
+  header{max-width:var(--maxw);margin:0 auto;padding:22px var(--pad) 0}
+  h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em}
+  .updated{color:var(--faint);font-size:12px;margin-top:3px}
+  .toprow{display:flex;align-items:center;gap:10px;margin:10px 0 0;flex-wrap:wrap}
+  #reload{font:600 12px var(--sans);color:var(--soft);background:var(--paper);border:1px solid var(--line-3);
+       border-radius:6px;padding:5px 13px;cursor:pointer}
+  #reload:hover{color:var(--ink);background:var(--paper-3)}
+  #status{font-size:12px;color:var(--faint)}
+
+  /* ---- segmented window toggle (30d / 90d) ---- */
+  .seg{display:inline-flex;gap:0;border:1px solid var(--line-3);border-radius:999px;background:var(--paper);padding:2px}
+  .seg button{font:600 11.5px var(--sans);border:none;background:none;color:var(--soft);padding:4px 14px;
+       border-radius:999px;cursor:pointer;transition:all .12s}
+  .seg button:hover{color:var(--ink)}
+  .seg button.on{background:var(--ink);color:#fff}
+
+  /* ---- KPI strip ---- */
+  .strip{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:var(--maxw);
+         margin:16px auto 0;padding:0 var(--pad)}
+  @media(max-width:820px){.strip{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.strip{grid-template-columns:1fr}}
+  .kpi{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+       box-shadow:var(--card);min-height:96px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;
+       transition:transform .15s,box-shadow .15s}
+  .kpi:hover{transform:translateY(-2px);box-shadow:var(--lift)}
+  .kpi .lab{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+  .kpi .val{font-size:27px;font-weight:700;color:var(--ink);line-height:1.05}
+  .kpi .val small{font-size:13px;font-weight:600;color:var(--soft)}
+  .kpi .sub{font-size:11px;color:var(--faint)}
+  .kpi.star{background:linear-gradient(165deg,#374151 0%,#1f2937 75%);border-color:#1f2937}
+  .kpi.star .lab{color:rgba(255,255,255,.6)} .kpi.star .val{color:#fff}
+  .kpi.star .val small{color:rgba(255,255,255,.62)} .kpi.star .sub{color:rgba(255,255,255,.5)}
+  .kpi.pos .val{color:var(--green-deep)} .kpi.neg .val{color:var(--red-deep)}
+  .tag{display:inline-block;font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+       padding:1px 5px;border-radius:4px;vertical-align:middle;margin-left:5px}
+  .tag.est{background:var(--yellow-wash);color:var(--yellow-deep);border:1px solid var(--yellow-line)}
+  .tag.gross{background:var(--paper-3);color:var(--soft);border:1px solid var(--line)}
+
+  /* ---- section shell ---- */
+  main{max-width:var(--maxw);margin:0 auto;padding:8px var(--pad) 48px}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:var(--card);
+        padding:18px 18px 16px;margin-top:16px}
+  .card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .card-h .t{font-size:13px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.04em}
+  .card-h .hint{font-size:11px;color:var(--faint);font-weight:400}
+
+  /* ---- graph ---- */
+  .chart{position:relative;width:100%;margin:8px 0 2px}
+  .chart svg{display:block;width:100%;height:240px}
+  .cursor{position:absolute;top:0;bottom:22px;width:1px;background:var(--line-3);pointer-events:none;display:none}
+  .gtip{position:absolute;top:0;transform:translateX(-50%);pointer-events:none;display:none;z-index:5;
+        background:var(--ink);color:#fff;border-radius:7px;padding:7px 10px;font-size:11px;line-height:1.5;
+        white-space:nowrap;box-shadow:var(--lift)}
+  .gtip b{font-weight:700}
+  .gtip .d{color:rgba(255,255,255,.6);font-size:10px;margin-bottom:2px}
+  .gtip .rev i{color:#cbd5e1} .gtip .grs i{color:#86efac} .gtip .un i{color:#cbd5e1}
+  .gtip i{font-style:normal}
+  .xaxis{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--faint);
+         margin-top:2px;padding:0 2px}
+  .glegend{display:flex;gap:16px;align-items:center;font-size:11px;color:var(--soft);margin-top:8px}
+  .glegend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .sw.rev{background:#cbd5e1} .sw.grs{background:var(--green);border-radius:999px;height:3px;width:16px}
+  .sw.bought{background:#cbd5e1} .sw.sold{background:var(--green)}
+
+  /* ---- ASIN list ---- */
+  .listbtns{display:flex;gap:6px;flex-wrap:wrap}
+  .lb{font:600 12px var(--sans);border:1px solid var(--line-3);background:var(--paper);color:var(--soft);
+      border-radius:7px;padding:6px 13px;cursor:pointer;transition:all .12s}
+  .lb:hover{border-color:var(--faint);color:var(--ink)}
+  .lb.on{background:var(--ink);border-color:var(--ink);color:#fff}
+  .listlead{font-size:12.5px;color:var(--soft);margin:10px 0 4px}
+  .listlead b{color:var(--ink)}
+  .tblwrap{overflow-x:auto;margin-top:6px}
+  table.pt{width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px}
+  table.pt th{font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);text-align:right;
+        font-weight:600;padding:0 10px 8px 0;border-bottom:1px solid var(--line-3)}
+  table.pt th.l{text-align:left}
+  table.pt td{padding:8px 10px 8px 0;border-bottom:1px solid var(--line-2);text-align:right;color:var(--ink);
+        font-variant-numeric:tabular-nums}
+  table.pt td.nm{text-align:left;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  table.pt tr:last-child td{border-bottom:none}
+  table.pt tr:hover td{background:var(--paper-2)}
+  .pos{color:var(--green-deep)} .neg{color:var(--red-deep)} .lockcell{color:var(--faint);font-style:italic}
+  .dos{font-weight:600;border-radius:999px;padding:2px 9px;font-size:11px}
+  .dos.red{background:var(--red-wash);color:var(--red-deep);border:1px solid var(--red-line)}
+  .dos.yellow{background:var(--yellow-wash);color:var(--yellow-deep);border:1px solid var(--yellow-line)}
+  .dos.ok{background:var(--green-wash);color:var(--green-deep);border:1px solid var(--green-line)}
+  .trend{font-size:11px;font-weight:600;white-space:nowrap}
+  .trend.up{color:var(--green-deep)} .trend.dn{color:var(--yellow-deep)}
+  .trend.fl{color:var(--soft)} .trend.lo{color:var(--faint)}
+
+  /* ---- monthly mini bars ---- */
+  .mbar{position:relative;height:14px;background:var(--paper-3);border-radius:3px;overflow:hidden;min-width:70px}
+  .mbar span{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
+  .mbar span.b{background:#cbd5e1} .mbar span.s{background:var(--green)}
+
+  .note{background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:11px 14px;
+        font-size:12.5px;color:var(--soft);line-height:1.55;margin-top:12px}
+  .note b{color:var(--ink)}
+  .note.lock{background:var(--yellow-wash);border-color:var(--yellow-line);color:var(--yellow-deep)}
+  .note.lock b{color:var(--yellow-deep)}
+  .err{color:var(--red-deep);background:var(--red-wash);border:1px solid var(--red-line);border-radius:8px;
+       padding:12px;font-size:13px;white-space:pre-wrap}
+  footer{max-width:var(--maxw);margin:0 auto;padding:0 var(--pad) 40px;color:var(--faint);font-size:11px;line-height:1.6}
+</style>
+<header>
+  <h1>Profit &amp; Loss</h1>
+  <div class="updated" id="asof">Loading&hellip;</div>
+  <div class="toprow">
+    <button id="reload">Reload</button>
+    <span id="status"></span>
+    <span style="flex:1"></span>
+    <div class="seg" id="winseg"></div>
+  </div>
+</header>
+<section class="strip" id="strip"></section>
+<main>
+  <div id="graphcard"></div>
+  <div id="monthlycard"></div>
+  <div id="listcard"></div>
+</main>
+<footer id="foot"></footer>
+<script>
+// ---- published data layer: viewer's OWN Google Drive via window.claude.mcp (base64 JSON) ----------
+const FILE_ID = "{{PNL_FEED_FILE_ID}}";
+const SERVER = "Google Drive";
+const TOOL = "download_file_content";
+
+// UTF-8-safe base64 decode. download_file_content returns clean base64 (no connector backslash damage),
+// so unlike the Cowork tiles there is NO parseFeed escape-stripping to do — decode then JSON.parse.
+function b64ToStr(b64){ const bin=atob(b64); const bytes=Uint8Array.from(bin,function(c){return c.charCodeAt(0);}); return new TextDecoder("utf-8").decode(bytes); }
+function money(n){ if(n==null||n==="")return "&mdash;"; return "$"+Math.round(+n).toLocaleString(); }
+function moneyK(n){ n=+n||0; return n>=1000 ? "$"+(n/1000).toFixed(n>=10000?0:1)+"k" : "$"+Math.round(n); }
+function pct(n){ return n==null ? "&mdash;" : (+n)+"%"; }
+
+let FEED=null, WIN="t30", GDAYS=30, GMETRIC="sp", TAB="all";
+
+// ---- KPI strip ---------------------------------------------------------------------------------
+function win(){ return (FEED.totals&&FEED.totals[WIN]) || {}; }
+function kpi(cls,lab,val,sub){ return '<div class="kpi '+(cls||"")+'"><div class="lab">'+lab+'</div>'
+  +'<div class="val">'+val+'</div><div class="sub">'+(sub||"")+'</div></div>'; }
+
+function renderStrip(){
+  const w=win(), stl=FEED.totals.settlement, cg=FEED.cogs, dn=(w.days||30);
+  const payV = stl ? money(stl.payout) : "&mdash;";
+  // all-time = sum of every Closed settlement's deposit; shown beside the last payout.
+  const allTime = (stl && stl.payout_all_time!=null)
+      ? money(stl.payout_all_time)+" all-time"+(stl.settlements_count?(" &middot; "+stl.settlements_count+" payouts"):"")
+      : "matches your bank";
+  const payback = (w.payback_days!=null ? w.payback_days+' <small>days</small>' : "&mdash;");
+  const hasNet = (w.net!=null);
+  let h="";
+  if(cg.available && hasNet){
+    // HONESTY: w.net is revenue - COGS - Amazon fees. It does NOT include the seller's own business
+    // costs (prep, inbound shipping, ads, software, VA), so it is NOT true net profit yet. Label it
+    // "After Amazon fees" — calling it "Net profit" is exactly what misled a student on the first look.
+    h += kpi("star","After Amazon fees &middot; "+dn+"d", money(w.net), w.net_margin_pct+"% &middot; before your prep, ads &amp; software");
+    h += kpi("","Gross profit &middot; "+dn+"d", money(w.gross), w.gross_margin_pct+"% before Amazon fees");
+    h += kpi("","Margin after Amazon", pct(w.net_margin_pct), "still before your business costs");
+    h += kpi("","Gross margin", pct(w.gross_margin_pct), "revenue &minus; product cost");
+    h += kpi((w.ret_pct>8?"neg":""),"Units &middot; returns &middot; "+dn+"d", (w.units||0)+' <small>u</small>',
+             money(w.revenue)+" revenue &middot; "+w.ret_pct+"% returned");
+    h += kpi("","Last payout", payV, allTime);
+    h += kpi("","Payback"+'<span class="tag est">est</span>', payback, "days of profit to clear stock cost");
+  } else if(cg.available){
+    // costs known but no settled fee data yet -> gross-only headline
+    h += kpi("star","Gross profit &middot; "+dn+"d", money(w.gross), w.gross_margin_pct+"% margin &middot; before Amazon fees");
+    h += kpi("","Gross margin", pct(w.gross_margin_pct), "revenue &minus; product cost");
+    h += kpi("","Gross ROI", pct(w.roi_pct), "profit &divide; product cost");
+    h += kpi("","Payback"+'<span class="tag est">est</span>', payback, "days of profit to clear stock cost");
+    h += kpi("","Last payout", payV, allTime);
+    h += kpi((w.ret_pct>8?"neg":""),"Units &middot; returns &middot; "+dn+"d", (w.units||0)+' <small>u</small>',
+             money(w.revenue)+" revenue &middot; "+w.ret_pct+"% returned");
+  } else {
+    h += kpi("star","Revenue &middot; "+dn+"d", money(w.revenue), (w.units||0)+" units &middot; profit unlocks after migration");
+    h += kpi("","Units sold &middot; "+dn+"d", (w.units||0)+' <small>u</small>', "");
+    h += kpi((w.ret_pct>8?"neg":""),"Return rate &middot; "+dn+"d", w.ret_pct+"%", (w.ret_units||0)+" units returned");
+    if(w.fees!=null) h += kpi("neg","Amazon fees &middot; "+dn+"d", money(w.fees), "referral + FBA + refunds");
+    else h += kpi("pos","Reimbursed &middot; "+dn+"d", money(w.reimb), "Amazon owed you back");
+    h += kpi("","Last payout", payV, allTime);
+    h += kpi("","Profit", "&mdash;", "unlocks after cost migration");
+  }
+  document.getElementById("strip").innerHTML = h;
+}
+
+// ---- graph -------------------------------------------------------------------------------------
+function fmtDay(iso){ const p=String(iso||"").split("-"); return p.length===3 ? (+p[1])+"/"+(+p[2]) : iso; }
+function movAvg(a, w){ const o=[]; for(let i=0;i<a.length;i++){ let s=0,c=0;
+  for(let j=Math.max(0,i-w+1);j<=i;j++){ s+=(+a[j]||0); c++; } o.push(c?s/c:0); } return o; }
+
+function renderGraph(){
+  const el=document.getElementById("graphcard");
+  const s=FEED.series;
+  const returnsMode = GMETRIC==="ret";
+  const dseg='<div class="seg">'+[30,60,90].map(function(d){return '<button class="'+(GDAYS===d?"on":"")
+      +'" onclick="setGdays('+d+')">'+d+'d</button>';}).join("")+'</div>';
+  const mseg='<div class="seg">'+[["sp","Sales &amp; profit"],["ret","Returns"]].map(function(a){
+      return '<button class="'+(GMETRIC===a[0]?"on":"")+'" onclick="setGmetric(\''+a[0]+'\')">'+a[1]+'</button>';}).join("")+'</div>';
+  if(!s||!Array.isArray(s.days)||!s.days.length){
+    el.innerHTML='<div class="card"><div class="card-h"><span class="t">Over time</span></div>'
+      +'<div class="note">The daily graph fills in after your next run.</div></div>'; return;
+  }
+  const n=Math.min(GDAYS, s.days.length);
+  const days=s.days.slice(-n), rev=(s.revenue||[]).slice(-n), un=(s.units||[]).slice(-n);
+  const rets=(s.returns||[]).slice(-n);
+  const gross=(Array.isArray(s.gross)? s.gross.slice(-n):null);
+  const barVals = returnsMode ? rets : rev;
+  const barColor = returnsMode ? "#f5b5b5" : "#cbd5e1";
+  const VBW=1000, VBH=240, pT=10, pB=6, pL=4, pR=4, plotH=VBH-pT-pB, plotW=VBW-pL-pR;
+  let maxY=1; for(const v of barVals) maxY=Math.max(maxY,+v||0);
+  if(!returnsMode && gross) for(const v of gross) maxY=Math.max(maxY,+v||0);
+  const bw=plotW/n, barw=Math.max(1,bw*0.6);
+  const yFor=function(v){ return pT+(1-(Math.max(0,+v||0)/maxY))*plotH; };
+  const base=pT+plotH;
+  let bars="";
+  for(let i=0;i<n;i++){ const x=pL+i*bw+(bw-barw)/2, y=yFor(barVals[i]);
+    bars+='<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+barw.toFixed(1)+'" height="'+(base-y).toFixed(1)+'" rx="1" fill="'+barColor+'"/>'; }
+  let line="";
+  if(!returnsMode && gross){ let pts="";
+    for(let i=0;i<n;i++){ pts+=(pL+i*bw+bw/2).toFixed(1)+","+yFor(gross[i]).toFixed(1)+" "; }
+    line='<polyline points="'+pts.trim()+'" fill="none" stroke="#16a34a" stroke-width="2" '
+        +'stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'; }
+  else if(returnsMode){ const ma=movAvg(rets,7); let pts="";
+    for(let i=0;i<n;i++){ pts+=(pL+i*bw+bw/2).toFixed(1)+","+yFor(ma[i]).toFixed(1)+" "; }
+    line='<polyline points="'+pts.trim()+'" fill="none" stroke="#b91c1c" stroke-width="2" '
+        +'stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'; }
+  const svg='<svg viewBox="0 0 '+VBW+' '+VBH+'" preserveAspectRatio="none">'
+    +'<line x1="'+pL+'" y1="'+base+'" x2="'+(VBW-pR)+'" y2="'+base+'" stroke="#e5e7eb" stroke-width="1" vector-effect="non-scaling-stroke"/>'
+    +bars+line+'</svg>';
+  const ticks=[0, Math.floor(n/2), n-1].filter(function(v,i,a){return a.indexOf(v)===i;});
+  const xaxis='<div class="xaxis">'+ticks.map(function(i){return '<span>'+fmtDay(days[i])+'</span>';}).join("")+'</div>';
+  const legend= returnsMode
+    ? '<div class="glegend"><span><i class="sw" style="background:#f5b5b5"></i>Return units per day</span>'
+      +'<span><i class="sw" style="background:#b91c1c;height:3px;width:16px;border-radius:999px"></i>7-day average</span></div>'
+    : '<div class="glegend"><span><i class="sw rev"></i>Revenue</span>'
+      +(gross?'<span><i class="sw grs"></i>Gross profit (before Amazon fees)</span>':'<span style="color:var(--faint)">Profit line unlocks after cost migration</span>')+'</div>';
+  el.innerHTML='<div class="card"><div class="card-h"><span class="t">Over time</span>'
+    +'<span class="hint">last '+n+' days &middot; hover for a day</span></div>'
+    +'<div class="card-h" style="margin:0 0 6px">'+mseg+dseg+'</div>'
+    +'<div class="chart" id="chart">'+svg+'<div class="cursor" id="gcur"></div><div class="gtip" id="gtip"></div></div>'
+    +xaxis+legend+'</div>';
+  attachHover(days, {rev:rev, gross:gross, un:un, rets:rets}, n, returnsMode);
+}
+function setGdays(d){ GDAYS=d; fuseInto("graphcard", renderGraph); }
+function setGmetric(m){ GMETRIC=m;
+  if(m==="ret") TAB="returns"; else if(TAB==="returns") TAB="all";
+  fuseInto("graphcard", renderGraph); fuseInto("listcard", renderList); }
+function attachHover(days, S, n, returnsMode){
+  const chart=document.getElementById("chart"), cur=document.getElementById("gcur"), tip=document.getElementById("gtip");
+  if(!chart) return;
+  function at(e){
+    const r=chart.getBoundingClientRect();
+    const mx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    let i=Math.floor((mx/r.width)*n); i=Math.max(0,Math.min(n-1,i));
+    const cx=((i+0.5)/n)*r.width;
+    cur.style.display="block"; cur.style.left=cx+"px";
+    tip.style.display="block";
+    tip.innerHTML='<div class="d">'+fmtDay(days[i])+'</div>'
+      + (returnsMode
+          ? '<div class="rev"><i>Returns</i> <b>'+(S.rets[i]||0)+' u</b></div>'
+          : ('<div class="rev"><i>Revenue</i> <b>'+money(S.rev[i])+'</b></div>'
+             +(S.gross?'<div class="grs"><i>Gross</i> <b>'+money(S.gross[i])+'</b></div>':'')
+             +'<div class="un"><i>Units</i> <b>'+(S.un[i]||0)+'</b></div>'));
+    let tl=cx; const tw=tip.offsetWidth;
+    tl=Math.max(tw/2+2, Math.min(r.width-tw/2-2, tl));
+    tip.style.left=tl+"px";
+  }
+  chart.addEventListener("mousemove", at);
+  chart.addEventListener("touchmove", at, {passive:true});
+  chart.addEventListener("mouseleave", function(){ cur.style.display="none"; tip.style.display="none"; });
+}
+
+// ---- monthly bought vs sold --------------------------------------------------------------------
+function renderMonthly(){
+  const el=document.getElementById("monthlycard");
+  const m=(FEED.monthly)||[];
+  if(!m.length){ el.innerHTML=""; return; }
+  let mx=1; for(const x of m) mx=Math.max(mx, +x.bought||0, +x.sold||0);
+  const rows=m.slice().reverse().map(function(x){
+    const b=+x.bought||0, s=+x.sold||0;
+    const bar='<div class="mbar" title="bought '+b+' &middot; sold '+s+'">'
+      +'<span class="b" style="width:'+Math.round(b/mx*100)+'%;opacity:.9"></span>'
+      +'<span class="s" style="width:'+Math.round(s/mx*100)+'%;height:6px;top:auto;bottom:0;opacity:.95"></span></div>';
+    return '<tr><td class="nm">'+x.month+'</td><td>'+b.toLocaleString()+'</td><td>'+s.toLocaleString()
+      +'</td><td style="width:38%">'+bar+'</td></tr>';
+  }).join("");
+  el.innerHTML='<div class="card"><div class="card-h"><span class="t">Units bought vs sold by month</span>'
+    +'<span class="hint">from your Item Journey &middot; newest first</span></div>'
+    +'<div class="glegend" style="margin:0 0 4px"><span><i class="sw bought"></i>Bought</span>'
+    +'<span><i class="sw sold"></i>Sold</span></div>'
+    +'<div class="tblwrap"><table class="pt" style="min-width:0"><thead><tr>'
+    +'<th class="l">Month</th><th>Units bought</th><th>Units sold</th><th class="l">&nbsp;</th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+
+// ---- ASIN list ---------------------------------------------------------------------------------
+function asObjs(tbl){
+  const cols=(FEED.asins&&FEED.asins.columns)||[]; const ix={}; cols.forEach(function(c,i){ix[c]=i;});
+  return (tbl||[]).map(function(r){ return {
+    asin:r[ix.asin], name:r[ix.name], u30:r[ix.u30], u7:r[ix.u7], rev30:r[ix.rev30],
+    vel:r[ix.vel], vel7:r[ix.vel7], trend:r[ix.trend], dos:r[ix.dos], stock:r[ix.stock],
+    inbound:r[ix.inbound], ret:r[ix.ret_pct], retU:r[ix.ret_u], cost:r[ix.cost],
+    profit30:r[ix.profit30], fees30:r[ix.fees30], net30:r[ix.net30] }; });
+}
+function netMarginPct(r){ return (r.net30!=null && r.rev30) ? Math.round(100*r.net30/r.rev30) : null; }
+function profitCell(p){ return p==null ? '<span class="lockcell">&mdash;</span>' : '<span class="'+(p>=0?"pos":"neg")+'">'+money(p)+'</span>'; }
+function marginPct(r){ return (r.profit30!=null && r.rev30) ? Math.round(100*r.profit30/r.rev30) : null; }
+function roiPct(r){ return (r.profit30!=null && r.cost && r.u30) ? Math.round(100*r.profit30/(r.u30*r.cost)) : null; }
+function pctCell(v){ return v==null ? '<span class="lockcell">&mdash;</span>' : '<span class="'+(v>=0?"pos":"neg")+'">'+v+'%</span>'; }
+function dosBadge(d){ if(d==null) return "&mdash;"; const c=d<7?"red":d<14?"yellow":"ok"; return '<span class="dos '+c+'">'+d+'d</span>'; }
+function trendBadge(t){
+  if(t==="rising")  return '<span class="trend up" title="selling faster than its 30-day pace">&#9650; rising</span>';
+  if(t==="slowing") return '<span class="trend dn" title="selling slower than its 30-day pace">&#9660; slowing</span>';
+  if(t==="steady")  return '<span class="trend fl">steady</span>';
+  return '<span class="trend lo" title="too few sales to call a trend">&mdash;</span>';
+}
+
+const TABS=[["all","All"],["winners","Winners"],["losers","Losers to cut"],["reorder","Reorder soon"],["returns","Returns"]];
+function deriveList(kind, all){
+  if(kind==="winners") return all.filter(function(r){return r.u30>0;}).slice(0,25);
+  if(kind==="losers")  return all.filter(function(r){return (r.stock||0)>0 && r.trend!=="rising";})
+      .slice().sort(function(a,b){return a.rev30-b.rev30;}).slice(0,25);
+  if(kind==="reorder"){ const dw=(FEED.asins.reorder_days||21);
+    return all.filter(function(r){return r.dos!=null && r.dos<dw;}).slice().sort(function(a,b){return a.dos-b.dos;}); }
+  if(kind==="returns") return all.filter(function(r){return (r.retU||0)>0;})
+      .slice().sort(function(a,b){return b.ret-a.ret;}).slice(0,25);
+  return all;
+}
+function listLead(kind, counts){
+  const c=counts||{};
+  if(kind==="winners") return "Your top sellers by 30-day revenue.";
+  if(kind==="losers")  return "<b>Cut candidates:</b> in stock, low 30-day revenue, and <b>not</b> picking up speed (slowing or steady). "
+    +"<b>"+(c.zero_sellers_with_stock||0)+"</b> of "+(c.catalog||0)+" have stock but zero 30-day sales.";
+  if(kind==="reorder") return "Runs out within ~"+((FEED.asins&&FEED.asins.reorder_days)||21)+" days at the pace you're selling <b>right now</b> "
+    +"(this week's velocity, not a stale 30-day average) &mdash; soonest first. A SKU that's stopped selling drops off on its own.";
+  if(kind==="returns") return "Highest 30-day return rates, worst first &mdash; these quietly eat your margin.";
+  const shown=c.shown, total=c.total;
+  return "Every ASIN you're holding or have sold in the last 90 days, most revenue first."
+    + (total!=null ? " <b>"+total+"</b> total"+(shown!=null&&shown<total?" (showing top "+shown+" by revenue)":"")+"." : "");
+}
+function retCell(r){ return '<span'+(r.ret>8?' class="neg"':'')+'>'+r.ret+'%</span>'; }
+
+function renderList(){
+  const el=document.getElementById("listcard");
+  const counts=(FEED.asins&&FEED.asins.counts)||{};
+  const all=asObjs((FEED.asins&&FEED.asins.rows)||[]);
+  const btns='<div class="listbtns">'+TABS.map(function(a){
+    const lbl = a[0]==="all" ? "All ("+(counts.total!=null?counts.total:all.length)+")" : a[1];
+    return '<button class="lb '+(TAB===a[0]?"on":"")+'" onclick="setTab(\''+a[0]+'\')">'+lbl+'</button>';}).join("")+'</div>';
+  const rows=deriveList(TAB, all);
+  const mode = TAB==="reorder" ? "reorder" : TAB==="returns" ? "returns" : "sales";
+  let body;
+  if(!rows.length){ body='<div class="note">Nothing here right now.</div>'; }
+  else{
+    let h='<div class="tblwrap"><table class="pt"><thead><tr>';
+    if(mode==="reorder"){ h+='<th class="l">Product</th><th>Days left</th><th>Trend</th><th>In stock</th><th>Inbound</th><th>This wk</th><th>30d</th>'; }
+    else if(mode==="returns"){ h+='<th class="l">Product</th><th>Return %</th><th>Returns</th><th>30d units</th><th>Stock</th><th>Trend</th>'; }
+    else{ h+='<th class="l">Product</th><th>30d units</th><th>This wk</th><th>Trend</th><th>30d revenue</th><th>Amazon fees</th><th>After fees/30d</th><th>Margin</th><th>Return %</th><th>Stock</th>'; }
+    h+='</tr></thead><tbody>';
+    for(const r of rows){
+      h+='<tr><td class="nm" title="'+(r.asin||"")+'">'+(r.name||"")+'</td>';
+      if(mode==="reorder"){
+        h+='<td>'+dosBadge(r.dos)+'</td><td class="l">'+trendBadge(r.trend)+'</td><td>'+(r.stock==null?"&mdash;":r.stock)
+          +'</td><td>'+(r.inbound?r.inbound:"&mdash;")+'</td><td>'+(r.u7||0)+'</td><td>'+(r.u30||0)+'</td>';
+      } else if(mode==="returns"){
+        h+='<td>'+retCell(r)+'</td><td>'+(r.retU||0)+'</td><td>'+(r.u30||0)+'</td><td>'+(r.stock==null?"&mdash;":r.stock)
+          +'</td><td class="l">'+trendBadge(r.trend)+'</td>';
+      } else {
+        h+='<td>'+(r.u30||0)+'</td><td>'+(r.u7||0)+'</td><td class="l">'+trendBadge(r.trend)+'</td>'
+          +'<td>'+money(r.rev30)+'</td><td>'+(r.fees30==null?'<span class="lockcell">&mdash;</span>':money(r.fees30))+'</td>'
+          +'<td>'+profitCell(r.net30)+'</td><td>'+pctCell(netMarginPct(r))+'</td>'
+          +'<td>'+retCell(r)+'</td><td>'+(r.stock==null?"&mdash;":r.stock)+'</td>';
+      }
+      h+='</tr>';
+    }
+    body=h+'</tbody></table></div>';
+  }
+  el.innerHTML='<div class="card"><div class="card-h"><span class="t">Every ASIN</span>'+btns+'</div>'
+    +'<div class="listlead">'+listLead(TAB, counts)+'</div>'+body+'</div>';
+}
+function setTab(k){ TAB=k; fuseInto("listcard", renderList); }
+
+// ---- plumbing ----------------------------------------------------------------------------------
+function fuseInto(elId, fn){ try{ fn(); }catch(e){ const el=document.getElementById(elId);
+  if(el) el.innerHTML='<div class="err">Section failed: '+String(e&&e.message||e)+'</div>'; } }
+
+function renderWinSeg(){
+  document.getElementById("winseg").innerHTML=[["t30","30d"],["t90","90d"]].map(function(a){
+    return '<button class="'+(WIN===a[0]?"on":"")+'" onclick="setWin(\''+a[0]+'\')">'+a[1]+'</button>';}).join("");
+}
+function setWin(w){ WIN=w; renderWinSeg(); fuseInto("strip", renderStrip); }
+
+function render(f){
+  FEED=f;
+  if(!f || f.status==="awaiting first robot run" || !f.totals){
+    document.getElementById("strip").innerHTML="";
+    document.getElementById("winseg").innerHTML="";
+    document.getElementById("monthlycard").innerHTML="";
+    document.getElementById("graphcard").innerHTML='<div class="card"><div class="note"><b>Awaiting your first robot run.</b> '
+      +'The daily routine fills this in with your sales, profit, winners, losers and reorder list &mdash; nothing for you to do.</div></div>';
+    document.getElementById("listcard").innerHTML="";
+    return;
+  }
+  renderWinSeg();
+  fuseInto("strip", renderStrip);
+  fuseInto("graphcard", renderGraph);
+  fuseInto("monthlycard", renderMonthly);
+  fuseInto("listcard", renderList);
+  const netOn = FEED.cogs&&FEED.cogs.available&&FEED.totals.t30&&FEED.totals.t30.net!=null;
+  document.getElementById("foot").innerHTML = netOn
+    ? "The big number is your cash <b>after Amazon&rsquo;s fees</b> (referral, FBA, refunds &mdash; from your settlement reports, sales tax excluded) &mdash; but <b>before your own business costs</b> (prep, inbound shipping, ads, software, VA). It is not your true net profit yet; add those in your Opex tab to unlock real net. Your exact bank cash is the Last payout tile. Read live from Google Drive on open."
+    : (FEED.cogs&&FEED.cogs.available)
+    ? "Gross profit = revenue &minus; your product cost. Your exact after-fee cash is the Last payout tile &mdash; it matches your bank deposit. Read live from Google Drive on open."
+    : "Sales, returns, payout and reorder signals are live now. Profit unlocks once your buy costs are loaded. Read live from Google Drive on open.";
+}
+
+// ---- MCP wiring (watchTool = live display; invalidate = manual reload) --------------------------
+function showNoMcp(){
+  document.getElementById("status").textContent = "✗ not connected";
+  document.getElementById("graphcard").innerHTML = '<div class="err">This is a live dashboard &mdash; open it from your own '
+    + '<b>claude.ai</b> account (Pro/Max) so it can read <b>your</b> Google Drive. On first open you&rsquo;ll get a one-time '
+    + '&ldquo;Allow Google Drive?&rdquo; prompt &mdash; approve it and your P&amp;L fills in.</div>';
+}
+function handleErr(err){
+  const code = err && err.code;
+  document.getElementById("status").textContent = "✗ " + (code||"error");
+  let msg;
+  if(code==="needs_reauth") msg="Reconnect <b>Google Drive</b> in claude.ai &rarr; Settings &rarr; Connectors, then hit Reload.";
+  else if(code==="server_not_connected"||code==="selection_required") msg="Add / choose the <b>Google Drive</b> connector in claude.ai &rarr; Settings &rarr; Connectors, then hit Reload.";
+  else if(code==="not_granted"||code==="capability_disabled"||code==="capability_removed"){ showNoMcp(); return; }
+  else if(code==="server_unavailable"||code==="rate_limited") msg="Google Drive is briefly unreachable &mdash; hit Reload in a moment.";
+  else if(code==="tool_error") msg="Google Drive reported an error reading the feed (is <code>pnl-feed.json</code> still there?).";
+  else msg="Live load failed ("+String(code||"unknown")+"). Hit Reload.";
+  document.getElementById("graphcard").innerHTML = '<div class="err">'+msg+'</div>';
+}
+let started=false;
+function start(){
+  const st=document.getElementById("status");
+  // window.claude.mcp===undefined is the only valid availability gate (a top-level direct nav has no window.claude).
+  if(!window.claude || window.claude.mcp===undefined){ showNoMcp(); return; }
+  st.textContent="Loading…";
+  try{
+    window.claude.mcp.watchTool(SERVER, TOOL, {fileId:FILE_ID}, function(ev){
+      if(ev.type==="error"){ handleErr(ev.error); return; }
+      try{
+        const payload = ev.result && ev.result.payload;
+        const b64 = payload && payload.content;
+        if(!b64){ throw new Error("no file content returned"); }
+        const f = JSON.parse(b64ToStr(b64));
+        const stamp = (ev.result.cache && ev.result.cache.storedAt)
+            ? new Date(ev.result.cache.storedAt).toLocaleString() : (f.as_of||f.generated_at||"");
+        document.getElementById("asof").textContent = "Live · rebuilt " + stamp + " from your Amazon data";
+        render(f);
+        st.textContent = "✓ live · " + new Date().toLocaleTimeString();
+      }catch(e){ document.getElementById("graphcard").innerHTML='<div class="err">Could not read the feed: '+String(e&&e.message||e)+'</div>'; }
+    }, { refetchInterval: 300000 });
+    started=true;
+  }catch(e){ showNoMcp(); }
+}
+document.getElementById("reload").onclick = function(){
+  if(!started){ start(); return; }
+  try{ window.claude.mcp.invalidate(SERVER, TOOL, {fileId:FILE_ID}); }catch(e){}
+};
+start();
+</script>
